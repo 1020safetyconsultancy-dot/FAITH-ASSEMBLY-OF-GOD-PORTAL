@@ -158,3 +158,29 @@ body:has(#auth:not([hidden])) #auth.panel{background:rgba(255,255,255,.97);backd
  body:has(#auth:not([hidden])){background:#f4f7fc}
  body:has(#auth:not([hidden]))::before{display:none}
 }
+
+
+/* Full-size editorial church schedule — live sharp text over atmospheric photography */
+.church-schedule-showcase{display:none}
+@media(min-width:850px){
+ body:has(#auth:not([hidden])) main{max-width:1500px;width:100%;min-height:calc(100vh - 120px);padding:30px clamp(22px,4vw,68px);display:grid;grid-template-columns:minmax(0,1.1fr) minmax(440px,.9fr);gap:clamp(22px,4vw,60px);align-items:center;justify-content:stretch}
+ body:has(#auth:not([hidden])) main::before{display:none!important}
+ body:has(#auth:not([hidden])){background:#f1f5fa!important}
+ body:has(#auth:not([hidden])) .church-schedule-showcase{position:relative;display:flex;align-items:center;min-height:660px;overflow:hidden;border-radius:24px;isolation:isolate;background:#082b5b;color:#fff;box-shadow:0 23px 50px rgba(0,39,94,.18)}
+ .church-schedule-showcase .schedule-photo{position:absolute;inset:0;z-index:-2;background:url("assets/church-service-background.webp") center / cover no-repeat;filter:blur(5px) saturate(.8);transform:scale(1.08)}
+ .church-schedule-showcase:before{content:"";position:absolute;inset:0;z-index:-1;background:linear-gradient(100deg,rgba(0,29,72,.97),rgba(0,39,94,.91) 60%,rgba(0,39,94,.72))}
+ .schedule-content{padding:clamp(30px,4vw,65px);width:100%}
+ .schedule-overline{font-weight:800;letter-spacing:2.5px;font-size:11px;color:#b9d2f3}
+ .schedule-content h1{color:#fff;font-size:clamp(31px,3.2vw,51px);line-height:1.08;letter-spacing:-1.5px;margin:17px 0 6px;font-weight:850}
+ .schedule-content h1 span{color:#d2e0f4}
+ .schedule-subhead{font-size:clamp(17px,1.8vw,24px);letter-spacing:3px;font-weight:400;color:#c4d7ee;margin:0 0 18px}
+ .schedule-rule{width:70px;height:4px;border-radius:4px;background:#fff;margin-bottom:28px}
+ .schedule-service{display:flex;flex-direction:column;gap:2px;margin-bottom:24px;border-left:2px solid #93b6e0;padding-left:15px}
+ .schedule-service strong{font-size:clamp(12px,1.15vw,15px);letter-spacing:.6px}
+ .schedule-service span{color:#ebf1fb;font-size:clamp(13px,1.25vw,16px)}
+ .schedule-address{margin:30px 0 0;color:#d4e2f5;font-size:12px;letter-spacing:.4px}
+ body:has(#auth:not([hidden])) #auth.panel{margin:0;width:100%;max-width:540px;justify-self:end}
+ body:has(#auth:not([hidden])) #message{grid-column:2;max-width:540px;margin:0;justify-self:end;width:100%}
+}
+@media(min-width:850px) and (max-height:740px){body:has(#auth:not([hidden])) .church-schedule-showcase{min-height:580px}}
+@media(max-width:849px){.church-schedule-showcase{display:none!important}}
