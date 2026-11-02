@@ -29,6 +29,11 @@ async function start(){
  if(!configured){$("#setup").hidden=false;return}
  const {data:{session}}=await db.auth.getSession();await showSession(session);
  db.auth.onAuthStateChange((_e,s)=>{setTimeout(()=>showSession(s),0)});
+ const adminMode=()=>{ $("#adminLogin").hidden=false;$("#staffLogin").hidden=true;$("#adminMode").classList.add("active");$("#staffMode").classList.remove("active"); };
+ const staffMode=()=>{ $("#adminLogin").hidden=true;$("#staffLogin").hidden=false;$("#staffMode").classList.add("active");$("#adminMode").classList.remove("active"); };
+ $("#adminMode").onclick=adminMode;$("#staffMode").onclick=staffMode;
+ if(new URLSearchParams(location.search).get("admin")==="1") adminMode(); else staffMode();
+ $("#adminForm").onsubmit=async e=>{e.preventDefault();const button=e.target.querySelector("button");button.disabled=true;try{const {error}=await db.auth.signInWithOtp({email:"bbillyjae@gmail.com",options:{emailRedirectTo:location.origin+location.pathname+"?admin=1",shouldCreateUser:true}});if(error)throw error;notice("Login link requested. Check the administrator email inbox.",true)}catch(err){notice(err.message)}finally{button.disabled=false}};
  $("#loginForm").onsubmit=async e=>{e.preventDefault();const {error}=await db.auth.signInWithPassword({email:$("#email").value,password:$("#password").value});if(error)notice(error.message)};
 }
 async function showSession(session){
