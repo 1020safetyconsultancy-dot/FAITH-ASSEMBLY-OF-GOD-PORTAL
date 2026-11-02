@@ -49,7 +49,7 @@ async function showSession(session){
  const {data,error}=await db.from("staff_roles").select("role").eq("user_id",session.user.id).maybeSingle();
  if(error)notice(error.message);
  role=data?.role||null;
- $("#account").innerHTML='<span>'+esc(session.user.email)+' · '+esc(role||"Role pending")+'</span> <button class="ghost" id="logout">Sign out</button>';
+ $("#account").innerHTML='<span>'+esc(session.user.email)+' · '+esc(role||"Role pending")+'</span> <button class="ghost" id="changePassword">Change password</button> <button class="ghost" id="logout">Sign out</button>';
  $("#logout").onclick=()=>db.auth.signOut();
  $("#changePassword").onclick=()=>formModal("Change your password",[
   {key:"new_password",label:"New password (at least 12 characters)",type:"password",required:true},
