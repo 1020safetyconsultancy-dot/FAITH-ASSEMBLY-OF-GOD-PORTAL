@@ -1,6 +1,6 @@
-// Public browser configuration only. The anon/publishable key is NOT a secret.
-// Never place the Supabase service_role or other privileged API key here.
+// Public Supabase configuration. Only a publishable key is used.
+// Security is enforced by Supabase Row Level Security policies.
 window.CHURCH_CONFIG = {
-  supabaseUrl: "",
-  supabaseAnonKey: ""
+  supabaseUrl: "https://dwntixlharawbshtfmqh.supabase.co",
+  supabaseAnonKey: "sb_publishable_D_F223O6z4J0IVHlEKheAw_8Ep6Ub8i"
 };
