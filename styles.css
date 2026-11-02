@@ -125,3 +125,15 @@ body:has(#auth:not([hidden])) #message{max-width:480px;margin:10px auto;text-ali
 #auth .login-emblem{margin:10px auto 18px}
 #auth .login-emblem img{width:145px;height:145px;aspect-ratio:1/1;object-fit:cover;border-radius:50%;padding:0;background:#00275e;border:5px solid white;box-shadow:0 9px 26px #00275e2c}
 @media(max-width:520px){.brand-logo{width:54px;height:54px}#auth .login-emblem img{width:124px;height:124px}}
+
+
+/* Desktop alignment: login card on right, centered on mobile */
+@media (min-width:850px){
+ body:has(#auth:not([hidden])) main{max-width:1260px;margin:0 auto;padding:0 52px;min-height:calc(100vh - 130px);display:flex;flex-direction:column;justify-content:center;align-items:flex-end}
+ body:has(#auth:not([hidden])) #auth.panel{margin:24px 0 24px auto;width:min(100%,510px);max-width:510px}
+ body:has(#auth:not([hidden])) #message{width:min(100%,510px);max-width:510px;margin:8px 0 0 auto}
+}
+@media (max-width:849px){
+ body:has(#auth:not([hidden])) main{display:block}
+ body:has(#auth:not([hidden])) #auth.panel{margin:30px auto}
+}
