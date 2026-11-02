@@ -29,12 +29,12 @@ async function start(){
  if(!configured){$("#setup").hidden=false;return}
  const {data:{session}}=await db.auth.getSession();await showSession(session);
  db.auth.onAuthStateChange((_e,s)=>{setTimeout(()=>showSession(s),0)});
- const adminMode=()=>{ $("#adminLogin").hidden=false;$("#staffLogin").hidden=true;$("#adminMode").classList.add("active");$("#staffMode").classList.remove("active"); };
- const staffMode=()=>{ $("#adminLogin").hidden=true;$("#staffLogin").hidden=false;$("#staffMode").classList.add("active");$("#adminMode").classList.remove("active"); };
+ const adminMode=()=>{ notice(""); $("#adminLogin").hidden=false;$("#staffLogin").hidden=true;$("#adminMode").classList.add("active");$("#staffMode").classList.remove("active"); };
+ const staffMode=()=>{ notice(""); $("#adminLogin").hidden=true;$("#staffLogin").hidden=false;$("#staffMode").classList.add("active");$("#adminMode").classList.remove("active"); };
  $("#adminMode").onclick=adminMode;$("#staffMode").onclick=staffMode;
  if(new URLSearchParams(location.search).get("admin")==="1") adminMode(); else staffMode();
  $("#adminForm").onsubmit=async e=>{e.preventDefault();const button=e.target.querySelector("button");button.disabled=true;notice("");try{const {data,error}=await db.auth.signInWithPassword({email:"bbillyjae@gmail.com",password:$("#adminPassword").value});if(error)throw error;const {data:profile,error:roleError}=await db.from("staff_roles").select("role").eq("user_id",data.user.id).maybeSingle();if(roleError)throw roleError;if(profile?.role!=="admin"){await db.auth.signOut();throw Error("This account is not authorized as a church administrator.");}notice("Administrator signed in successfully.",true);}catch(err){notice(err.message==="Invalid login credentials"?"Invalid credentials. Confirm the administrator password in Supabase Authentication.":err.message)}finally{button.disabled=false;$("#adminPassword").value=""}};
- $("#loginForm").onsubmit=async e=>{e.preventDefault();const {error}=await db.auth.signInWithPassword({email:$("#email").value,password:$("#password").value});if(error)notice(error.message)};
+ $("#loginForm").onsubmit=async e=>{e.preventDefault();notice("");const {error}=await db.auth.signInWithPassword({email:$("#email").value,password:$("#password").value});if(error)notice(error.message)};
 }
 async function showSession(session){
  $("#auth").hidden=!!session;$("#portal").hidden=!session;
