@@ -85,3 +85,12 @@ button.ghost:hover,.tabs button:hover{background:#dce7f5}
 .dash-finance-grid>div.balance{background:var(--faog-navy);color:#fff}
 .badge{background:#e6edf7;color:var(--faog-navy)}
 table th{background:#eef3fa;color:var(--faog-navy)}
+
+
+/* Actual Faith Assembly of God logo integration */
+.brand-logo{width:56px;height:56px;object-fit:contain;border-radius:12px;background:#00275e;padding:3px;box-shadow:0 4px 12px #00275e20}
+.login-emblem{display:flex;justify-content:center;margin:0 0 18px;position:relative;z-index:2}
+.login-emblem img{width:108px;height:96px;object-fit:contain;background:#00275e;border-radius:18px;padding:5px;box-shadow:0 10px 24px #00275e24}
+.dash-logo{max-width:220px;width:70%;height:auto;max-height:225px;object-fit:contain;position:relative;z-index:3;border-radius:18px;background:#00275e8c;padding:8px;filter:drop-shadow(0 8px 18px #001c4c55)}
+.dash-hero-art{display:flex;align-items:center;justify-content:center}
+@media(max-width:600px){.brand-logo{width:45px;height:45px}.login-emblem img{width:92px;height:82px}.dash-logo{max-width:150px;opacity:.55}}
