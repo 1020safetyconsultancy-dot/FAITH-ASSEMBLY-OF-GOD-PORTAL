@@ -93,9 +93,34 @@ async function reports(){const [o,e]=await Promise.all([query("offerings","*","e
  $("#reportMonth").onchange=report;$("#exportCsv").onclick=()=>{const grouped=report(),rows=[["Category","Amount PHP"],...Object.entries(grouped)],csv=rows.map(r=>r.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(",")).join("\r\n");const url=URL.createObjectURL(new Blob([csv],{type:"text/csv"}));const a=document.createElement("a");a.href=url;a.download="faith-assembly-report-"+($("#reportMonth").value||"all")+".csv";a.click();URL.revokeObjectURL(url)};report()
 }
 start().catch(e=>notice(e.message));
+async function adminAccountsApi(payload){
+ const {data:{session},error:sessionError}=await db.auth.getSession();
+ if(sessionError||!session)throw Error("Please sign in as administrator.");
+ const response=await fetch(conf.supabaseUrl+"/functions/v1/church-admin-users",{
+  method:"POST",headers:{"Authorization":"Bearer "+session.access_token,"apikey":conf.supabaseAnonKey,"Content-Type":"application/json"},
+  body:JSON.stringify(payload)
+ });
+ const result=await response.json().catch(()=>({error:"Unable to read account service response"}));
+ if(!response.ok)throw Error(result.error||"Account management failed");
+ return result;
+}
 async function accounts(){
- const seats=await query("church_role_seats","*","seat_id");
- const counts={pastor:0,board:0,treasurer:0};
- seats.forEach(s=>{if(s.user_id)counts[s.role]++});
- $("#view").innerHTML='<section class="panel"><h1>Church Leadership Accounts</h1><p>One unique Supabase login is required for each leader. Seats are reserved below; credentials must never be shared.</p><div class="stats">'+[['Pastor',counts.pastor,1],['Board Members',counts.board,8],['Treasurers',counts.treasurer,2]].map(([name,n,max])=>'<div class="stat"><small>'+name+'</small><strong>'+n+' / '+max+'</strong></div>').join("")+'</div><h2 style="margin-top:24px">Account seats</h2>'+table(["Position","Status"],seats.map(s=>'<tr><td>'+esc(s.label)+'</td><td>'+esc(s.user_id?"Assigned":"Not yet assigned")+'</td></tr>'))+'<p class="hint">To activate a seat, create an individual Supabase Auth account and assign its user ID to staff_roles and church_role_seats. The administrator assigns each account only after verifying the individual.</p></section>';
+ const [seats,server]=await Promise.all([query("church_role_seats","*","seat_id"),adminAccountsApi({action:"list"})]);
+ const assigned=server.accounts||[];
+ const count=roleName=>assigned.filter(x=>x.role===roleName).length;
+ const limits={pastor:1,board:8,treasurer:2};
+ const options=['pastor','board','treasurer','secretary','attendance'];
+ $("#view").innerHTML='<section class="panel"><div class="sectionhead"><h1>Manage User Accounts</h1><button id="inviteStaff">+ Add User / Invite</button></div><p>Create individual staff accounts using their own email address. Each person receives an invitation to set their own password. The administrator never needs to know staff passwords.</p><div class="stats">'+[['Pastor',count('pastor'),1],['Board Members',count('board'),8],['Treasurers',count('treasurer'),2]].map(([name,n,max])=>'<div class="stat"><small>'+name+'</small><strong>'+n+' / '+max+'</strong></div>').join("")+'</div><h2 style="margin-top:24px">Registered Users</h2>'+table(["Email","Current role","Change role"],assigned.map(a=>'<tr><td>'+esc(a.email)+'</td><td>'+esc(a.role)+'</td><td>'+(a.role==='admin'?'<span class="badge">Protected administrator</span>':'<button class="ghost" data-user="'+esc(a.user_id)+'">Edit role</button>')+'</td></tr>'))+'<h2 style="margin-top:24px">Leadership allocation</h2>'+table(["Seat","Status"],seats.map(s=>'<tr><td>'+esc(s.label)+'</td><td>'+esc(count(s.role)?count(s.role)+" "+s.role+" account(s) registered":"Available")+'</td></tr>'))+'<p class="hint">Limits: 1 pastor, 8 board members, 2 treasurers. Invitation emails may temporarily be delayed by Supabase email rate limits. Existing accounts keep their own credentials.</p></section>';
+ $("#inviteStaff").onclick=()=>formModal("Invite a church user",[
+ {key:"email",label:"Personal email",type:"email",required:true},
+ {key:"role",label:"Access role",type:"select",options:options.map(x=>'<option value="'+x+'">'+x.charAt(0).toUpperCase()+x.slice(1)+'</option>').join("")}
+ ],async payload=>{await adminAccountsApi({action:"invite",email:payload.email,role:payload.role});notice("Invitation sent. Account permissions assigned.",true);await accounts()});
+ $("#view").querySelectorAll("[data-user]").forEach(b=>b.onclick=()=>{
+  const current=assigned.find(a=>a.user_id===b.dataset.user);
+  if(!current)return;
+  formModal("Change user role",[{key:"role",label:"New role",type:"select",options:options.map(x=>'<option value="'+x+'" '+(current.role===x?'selected':'')+'>'+x+'</option>').join("")}],async form=>{
+   await adminAccountsApi({action:"change_role",user_id:current.user_id,role:form.role});
+   notice("User role updated.",true);await accounts()
+  });
+ });
 }
