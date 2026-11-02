@@ -94,3 +94,27 @@ table th{background:#eef3fa;color:var(--faog-navy)}
 .dash-logo{max-width:220px;width:70%;height:auto;max-height:225px;object-fit:contain;position:relative;z-index:3;border-radius:18px;background:#00275e8c;padding:8px;filter:drop-shadow(0 8px 18px #001c4c55)}
 .dash-hero-art{display:flex;align-items:center;justify-content:center}
 @media(max-width:600px){.brand-logo{width:45px;height:45px}.login-emblem img{width:92px;height:82px}.dash-logo{max-width:150px;opacity:.55}}
+
+
+/* FAOG refined login layout — compact, balanced, accessible */
+body:has(#auth:not([hidden])){background:#f4f7fb}
+body:has(#auth:not([hidden])) main{display:block;min-height:auto;max-width:1150px;padding:0 24px}
+#auth.panel{width:min(100%,480px);max-width:480px;margin:45px auto 20px;padding:26px 34px 29px;border:1px solid #d7e2f0;border-radius:18px;box-shadow:0 15px 44px rgba(0,39,94,.09)}
+#auth.panel:before{content:"FAITH ASSEMBLY OF GOD";display:block;letter-spacing:1.7px;font-weight:750;font-size:10px;color:#607da6;margin-bottom:12px;text-align:center}
+#auth.panel:after{display:none}
+#auth .login-emblem{margin:6px auto 12px;justify-content:center;display:flex}
+#auth .login-emblem img{width:82px;height:82px;object-fit:contain;padding:3px;border-radius:14px;box-shadow:0 5px 13px rgba(0,39,94,.13)}
+#auth .toolbar{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:0 0 10px;width:100%}
+#auth .toolbar button{font-weight:650;display:block;width:100%;border:1px solid #d5e0ef;border-radius:10px;text-align:center;text-decoration:none;padding:11px 7px;background:#eff4fa;color:#234970;line-height:1.3}
+#auth .toolbar button.active{background:#00275e;color:#fff;border-color:#00275e;text-decoration:none}
+#auth h1{font-size:27px;letter-spacing:-.7px;text-align:center;margin:5px 0 7px}
+#auth p:not(.hint){text-align:center;font-size:13px;margin:0 0 20px}
+#auth label{font-size:12px;margin-bottom:12px}
+#auth input{min-height:46px;background:#fff;border:1px solid #cbd8e8;border-radius:9px;padding:10px 12px}
+#auth form button[type=submit]{width:100%;display:block;padding:12px 14px;margin:4px 0 9px;border-radius:9px}
+#auth button.ghost{display:block;text-align:center;margin:0 auto 12px;background:transparent;border:0;text-decoration:none;font-size:13px;padding:6px 10px;color:#194c88}
+#auth button.ghost:hover{text-decoration:underline}
+#auth .hint{text-align:center;color:#708098;font-size:11px;line-height:1.5;margin:8px auto 0;max-width:340px}
+body:has(#auth:not([hidden])) footer{padding:8px 16px 24px}
+body:has(#auth:not([hidden])) #message{max-width:480px;margin:10px auto;text-align:center}
+@media(max-width:520px){body:has(#auth:not([hidden])) main{padding:0 14px}#auth.panel{margin:22px auto;padding:22px 20px}#auth .toolbar button{font-size:12px}}
