@@ -8,7 +8,7 @@ const notice=(msg,ok=false)=>{const n=$("#message");n.textContent=msg;n.classNam
 const configured=Boolean(conf.supabaseUrl&&conf.supabaseAnonKey);
 const db=configured?createClient(conf.supabaseUrl,conf.supabaseAnonKey,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}}):null;
 let role=null,memberCache=[],eventCache=[],activeTab="dashboard";
-const authRoles={dashboard:["admin","pastor","secretary","attendance","treasurer"],members:["admin","pastor","secretary","attendance","treasurer"],attendance:["admin","pastor","secretary","attendance"],offerings:["admin","treasurer"],expenses:["admin","treasurer"],reports:["admin","treasurer"]};
+const authRoles={dashboard:["admin","pastor","board","secretary","attendance","treasurer"],members:["admin","pastor","board","secretary","attendance","treasurer"],attendance:["admin","pastor","secretary","attendance"],offerings:["admin","treasurer"],expenses:["admin","treasurer"],reports:["admin","treasurer"],accounts:["admin"]};
 const can=t=>Boolean(role&&authRoles[t]?.includes(role));
 const writableMembers=()=>["admin","secretary"].includes(role);
 const canAttend=()=>["admin","secretary","attendance"].includes(role);
@@ -54,12 +54,12 @@ async function showSession(session){
  if(!role){$("#portal").hidden=false;$("#tabs").innerHTML="";$("#view").innerHTML='<section class="panel"><h2>Awaiting staff authorization</h2><p>An administrator must assign your account a staff role in Supabase.</p></section>';return}
  nav();await render();
 }
-function nav(){const list=[["dashboard","Overview"],["members","Members"],["attendance","Attendance"],["offerings","Tithes & Offerings"],["expenses","Expenses"],["reports","Reports"]];
+function nav(){const list=[["dashboard","Overview"],["members","Members"],["attendance","Attendance"],["offerings","Tithes & Offerings"],["expenses","Expenses"],["reports","Reports"],["accounts","Accounts"]];
  $("#tabs").innerHTML=list.filter(([key])=>can(key)).map(([key,label])=>'<button data-tab="'+key+'" class="'+(activeTab===key?"active":"")+'">'+label+"</button>").join("");
  $("#tabs").querySelectorAll("button").forEach(b=>b.onclick=()=>{activeTab=b.dataset.tab;nav();render()});
 }
-async function render(){try{if(!can(activeTab))activeTab="dashboard";const v=$("#view");v.innerHTML='<section class="panel">Loading records…</section>';if(activeTab==="dashboard")await dashboard();else if(activeTab==="members")await members();else if(activeTab==="attendance")await attendance();else if(activeTab==="offerings")await finance("offerings");else if(activeTab==="expenses")await finance("expenses");else await reports()}catch(e){$("#view").innerHTML='<section class="panel"><h2>Unable to load section</h2><p>'+esc(e.message)+'</p></section>';notice(e.message)}}
-async function dashboard(){await loadMembers();const events=await query("church_events","*","event_date");const att=await query("attendance");let offerings=[],expenses=[];if(can("reports")){offerings=await query("offerings");expenses=await query("expenses")}
+async function render(){try{if(!can(activeTab))activeTab="dashboard";const v=$("#view");v.innerHTML='<section class="panel">Loading records…</section>';if(activeTab==="dashboard")await dashboard();else if(activeTab==="members")await members();else if(activeTab==="attendance")await attendance();else if(activeTab==="offerings")await finance("offerings");else if(activeTab==="expenses")await finance("expenses");else if(activeTab==="accounts")await accounts();else await reports()}catch(e){$("#view").innerHTML='<section class="panel"><h2>Unable to load section</h2><p>'+esc(e.message)+'</p></section>';notice(e.message)}}
+async function dashboard(){await loadMembers();const events=await query("church_events","*","event_date");const att=role==="board"?[]:await query("attendance");let offerings=[],expenses=[];if(can("reports")){offerings=await query("offerings");expenses=await query("expenses")}
  const total=(xs)=>xs.filter(x=>!x.voided_at).reduce((sum,x)=>sum+Number(x.amount),0);
  const stats=[["Active members",memberCache.filter(x=>x.status==="active").length],["Members this month",memberCache.filter(x=>(x.member_since||"").startsWith(today().slice(0,7))).length],["Recorded check-ins",att.length],["Church events",events.length]];
  if(can("reports"))stats.push(["Offerings",money(total(offerings))],["Expenses",money(total(expenses))],["Balance",money(total(offerings)-total(expenses))]);
@@ -93,3 +93,9 @@ async function reports(){const [o,e]=await Promise.all([query("offerings","*","e
  $("#reportMonth").onchange=report;$("#exportCsv").onclick=()=>{const grouped=report(),rows=[["Category","Amount PHP"],...Object.entries(grouped)],csv=rows.map(r=>r.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(",")).join("\r\n");const url=URL.createObjectURL(new Blob([csv],{type:"text/csv"}));const a=document.createElement("a");a.href=url;a.download="faith-assembly-report-"+($("#reportMonth").value||"all")+".csv";a.click();URL.revokeObjectURL(url)};report()
 }
 start().catch(e=>notice(e.message));
+async function accounts(){
+ const seats=await query("church_role_seats","*","seat_id");
+ const counts={pastor:0,board:0,treasurer:0};
+ seats.forEach(s=>{if(s.user_id)counts[s.role]++});
+ $("#view").innerHTML='<section class="panel"><h1>Church Leadership Accounts</h1><p>One unique Supabase login is required for each leader. Seats are reserved below; credentials must never be shared.</p><div class="stats">'+[['Pastor',counts.pastor,1],['Board Members',counts.board,8],['Treasurers',counts.treasurer,2]].map(([name,n,max])=>'<div class="stat"><small>'+name+'</small><strong>'+n+' / '+max+'</strong></div>').join("")+'</div><h2 style="margin-top:24px">Account seats</h2>'+table(["Position","Status"],seats.map(s=>'<tr><td>'+esc(s.label)+'</td><td>'+esc(s.user_id?"Assigned":"Not yet assigned")+'</td></tr>'))+'<p class="hint">To activate a seat, create an individual Supabase Auth account and assign its user ID to staff_roles and church_role_seats. The administrator assigns each account only after verifying the individual.</p></section>';
+}
