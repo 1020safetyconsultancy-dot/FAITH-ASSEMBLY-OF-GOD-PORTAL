@@ -27,13 +27,20 @@ function formModal(title,fields,onSubmit){
 }
 async function start(){
  if(!configured){$("#setup").hidden=false;return}
- const {data:{session}}=await db.auth.getSession();await showSession(session);
- db.auth.onAuthStateChange((_e,s)=>{setTimeout(()=>showSession(s),0)});
+ const {data:{session}}=await db.auth.getSession();if(new URLSearchParams(location.search).get("recovery")!=="1")await showSession(session);
+ db.auth.onAuthStateChange((_e,s)=>{if(new URLSearchParams(location.search).get("recovery")==="1")return;setTimeout(()=>showSession(s),0)});
  const adminMode=()=>{ notice(""); $("#adminLogin").hidden=false;$("#staffLogin").hidden=true;$("#adminMode").classList.add("active");$("#staffMode").classList.remove("active"); };
  const staffMode=()=>{ notice(""); $("#adminLogin").hidden=true;$("#staffLogin").hidden=false;$("#staffMode").classList.add("active");$("#adminMode").classList.remove("active"); };
  $("#adminMode").onclick=adminMode;$("#staffMode").onclick=staffMode;
  if(new URLSearchParams(location.search).get("admin")==="1") adminMode(); else staffMode();
- $("#adminForm").onsubmit=async e=>{e.preventDefault();const button=e.target.querySelector("button");button.disabled=true;notice("");try{const {data,error}=await db.auth.signInWithPassword({email:"bbillyjae@gmail.com",password:$("#adminPassword").value});if(error)throw error;const {data:profile,error:roleError}=await db.from("staff_roles").select("role").eq("user_id",data.user.id).maybeSingle();if(roleError)throw roleError;if(profile?.role!=="admin"){await db.auth.signOut();throw Error("This account is not authorized as a church administrator.");}notice("Administrator signed in successfully.",true);}catch(err){notice(err.message==="Invalid login credentials"?"Invalid credentials. Confirm the administrator password in Supabase Authentication.":err.message)}finally{button.disabled=false;$("#adminPassword").value=""}};
+ $("#adminForm").onsubmit=async e=>{e.preventDefault();const button=e.target.querySelector("button");button.disabled=true;notice("");try{const {data,error}=await db.auth.signInWithPassword({email:$("#adminEmail").value.trim(),password:$("#adminPassword").value});if(error)throw error;const {data:profile,error:roleError}=await db.from("staff_roles").select("role").eq("user_id",data.user.id).maybeSingle();if(roleError)throw roleError;if(profile?.role!=="admin"){await db.auth.signOut();throw Error("This account is not authorized as a church administrator.");}notice("Administrator signed in successfully.",true);}catch(err){notice(err.message==="Invalid login credentials"?"Invalid credentials. Confirm the administrator password in Supabase Authentication.":err.message)}finally{button.disabled=false;$("#adminPassword").value=""}};
+ const resetUrl="https://1020safetyconsultancy-dot.github.io/FAITH-ASSEMBLY-OF-GOD-PORTAL/?recovery=1";
+ const requestReset=async email=>{if(!email||!email.includes("@")){notice("Enter a valid email address first.");return;}notice("");const {error}=await db.auth.resetPasswordForEmail(email,{redirectTo:resetUrl});if(error){notice(error.message.includes("rate limit")?"Supabase email limit reached. Try again later or ask an administrator to reset your password in Supabase.":error.message);return;}notice("If the email account exists, a password reset link has been requested. Check inbox and spam. If email limits are active, delivery may be delayed.",true)};
+ $("#adminForgot").onclick=()=>requestReset($("#adminEmail").value.trim());
+ $("#staffForgot").onclick=()=>requestReset($("#email").value.trim());
+ $("#resetForm").onsubmit=async e=>{e.preventDefault();const pass=$("#newPassword").value;if(pass!==$("#confirmPassword").value){notice("Passwords do not match.");return;}if(pass.length<12){notice("Use at least 12 characters.");return;}const {data:{session}}=await db.auth.getSession();if(!session){notice("Reset link is missing or expired. Request a new password reset email.");return;}const {error}=await db.auth.updateUser({password:pass});if(error){notice(error.message);return;}notice("Password updated successfully. Your account is signed in.",true);$("#resetScreen").hidden=true;history.replaceState(null,"",location.pathname);await showSession(session)};
+ const isRecovery=new URLSearchParams(location.search).get("recovery")==="1";
+ if(isRecovery){$("#auth").hidden=true;$("#portal").hidden=true;$("#resetScreen").hidden=false;}
  $("#loginForm").onsubmit=async e=>{e.preventDefault();notice("");const {error}=await db.auth.signInWithPassword({email:$("#email").value,password:$("#password").value});if(error)notice(error.message)};
 }
 async function showSession(session){
