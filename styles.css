@@ -26,3 +26,62 @@ body:has(#auth:not([hidden])) main{max-width:1100px;min-height:calc(100vh - 178p
 #auth button.ghost{background:transparent;text-decoration:underline;text-underline-offset:4px;padding-left:0}
 #auth .hint{margin-top:13px;font-size:12px}
 @media(max-width:550px){#auth.panel{padding:25px 22px}#auth.panel:after{opacity:.6}}
+
+
+/* Faith Assembly of God official-logo palette: navy, white, silver */
+:root{--faog-navy:#00275e;--faog-blue:#0b3d91;--faog-silver:#e9eef5;--faog-ink:#102843;--faog-border:#cdd9e8;--faog-shadow:0 14px 35px rgba(0,39,94,.10);color:var(--faog-ink);background:#f4f7fc}
+body,body:has(#auth:not([hidden])){background:radial-gradient(circle at 4% 70%,#e5edf9,transparent 38%),radial-gradient(circle at 94% 12%,#eef2f9,transparent 42%),#f5f8fd;color:var(--faog-ink)}
+.top{background:#fff;border-bottom:1px solid var(--faog-border)}
+.top .brand strong{color:var(--faog-navy)}
+.top .brand small,footer{color:#667e9c}
+.mark{background:var(--faog-navy);color:#fff;border-radius:13px}
+button{background:var(--faog-navy);color:white}
+button:hover{background:var(--faog-blue)}
+button.ghost,.tabs button{background:#eaf0f8;color:var(--faog-navy)}
+button.ghost:hover,.tabs button:hover{background:#dce7f5}
+.tabs button.active{background:var(--faog-navy);color:#fff}
+.panel,.stat{border-color:var(--faog-border);box-shadow:0 5px 18px #00275e09}
+#auth.panel{border:1px solid var(--faog-border);box-shadow:var(--faog-shadow);background:#fff}
+#auth.panel:before{color:var(--faog-blue)}
+#auth.panel:after{color:#e7edf6}
+#auth h1{color:var(--faog-navy)}
+#auth p,#auth .hint{color:#596e87}
+#auth .toolbar button{background:#e7eef8;color:var(--faog-navy)}
+#auth .toolbar button.active{background:var(--faog-navy);color:#fff}
+#auth input,input,select,textarea{border-color:#bfcfdf}
+#auth input{background:#fbfcff}
+#auth input:focus{outline-color:#658bc1}
+#auth form button[type=submit]{background:var(--faog-navy);color:#fff}
+#auth form button[type=submit]:hover{background:var(--faog-blue)}
+#auth button.ghost{color:var(--faog-navy)}
+.church-dashboard{--ink:var(--faog-ink);--moss:var(--faog-navy);--mint:var(--faog-silver)}
+.dash-hero{background:linear-gradient(112deg,#00275e 0%,#073671 62%,#0b4c93 100%);box-shadow:0 20px 46px #00275e26}
+.dash-hero h1 em{color:#f1f5fb}
+.dash-hero p,.dash-kicker{color:#deebfa}
+.dash-halo{border-color:#eff5ff59}
+.halo-one{background:#eff5ff17}
+.dash-church-symbol,.dash-spark{color:#eff4fc}
+.dash-date-label{background:#ffffff1c;border-color:#ffffff44}
+.dash-eyebrow{color:#557eaf}
+.dash-title-row h2,.dash-section-heading h2{color:var(--faog-navy)}
+.dash-live{color:var(--faog-blue);border-color:#cbdaed}
+.dash-live span{background:#2e72bb}
+.dash-stat.sage,.dash-stat.peach,.dash-stat.lavender,.dash-stat.butter{background:linear-gradient(160deg,#fff,#eaf0f9);border-color:#dce6f2}
+.dash-stat{box-shadow:0 8px 22px #00275e0c}
+.dash-stat:nth-child(2){background:linear-gradient(160deg,#fff,#e2ecf9)}
+.dash-stat:nth-child(3){background:linear-gradient(160deg,#fff,#e9e9f6)}
+.dash-stat:nth-child(4){background:linear-gradient(160deg,#fff,#e8f0f5)}
+.dash-stat-icon{color:var(--faog-navy)}
+.dash-stat strong,.dash-event-info strong{color:var(--faog-navy)}
+.dash-stat small,.dash-stat-number{color:#647d9e}
+.dash-events,.dash-verse,.dash-finance{border-color:#dce5f0;box-shadow:0 8px 26px #00275e0a}
+.dash-date{background:#e7eef8;color:var(--faog-navy)}
+.dash-date small{color:#53749d}
+.dash-event-dot,.dash-quote-mark{color:#527bab}
+.dash-verse{background:linear-gradient(135deg,#e9eff9,#f6f8fc)}
+.dash-verse blockquote,.dash-scripture{color:var(--faog-navy)}
+.dash-verse-decor{color:#d5e2f3}
+.dash-finance-grid>div{background:#edf3fa}
+.dash-finance-grid>div.balance{background:var(--faog-navy);color:#fff}
+.badge{background:#e6edf7;color:var(--faog-navy)}
+table th{background:#eef3fa;color:var(--faog-navy)}
