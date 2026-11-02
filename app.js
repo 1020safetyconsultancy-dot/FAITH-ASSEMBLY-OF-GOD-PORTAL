@@ -6,7 +6,7 @@ const money=n=>new Intl.NumberFormat("en-PH",{style:"currency",currency:"PHP"}).
 const today=()=>new Date(Date.now()+8*3600000).toISOString().slice(0,10);
 const notice=(msg,ok=false)=>{const n=$("#message");n.textContent=msg;n.className="message"+(ok?" ok":"")};
 const configured=Boolean(conf.supabaseUrl&&conf.supabaseAnonKey);
-const db=configured?createClient(conf.supabaseUrl,conf.supabaseAnonKey):null;
+const db=configured?createClient(conf.supabaseUrl,conf.supabaseAnonKey,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}}):null;
 let role=null,memberCache=[],eventCache=[],activeTab="dashboard";
 const authRoles={dashboard:["admin","pastor","secretary","attendance","treasurer"],members:["admin","pastor","secretary","attendance","treasurer"],attendance:["admin","pastor","secretary","attendance"],offerings:["admin","treasurer"],expenses:["admin","treasurer"],reports:["admin","treasurer"]};
 const can=t=>Boolean(role&&authRoles[t]?.includes(role));
@@ -33,7 +33,7 @@ async function start(){
  const staffMode=()=>{ $("#adminLogin").hidden=true;$("#staffLogin").hidden=false;$("#staffMode").classList.add("active");$("#adminMode").classList.remove("active"); };
  $("#adminMode").onclick=adminMode;$("#staffMode").onclick=staffMode;
  if(new URLSearchParams(location.search).get("admin")==="1") adminMode(); else staffMode();
- $("#adminForm").onsubmit=async e=>{e.preventDefault();const button=e.target.querySelector("button");button.disabled=true;try{const {error}=await db.auth.signInWithOtp({email:"bbillyjae@gmail.com",options:{emailRedirectTo:"https://1020safetyconsultancy-dot.github.io/FAITH-ASSEMBLY-OF-GOD-PORTAL/?admin=1",shouldCreateUser:true}});if(error)throw error;notice("Login link requested. Check the administrator email inbox.",true)}catch(err){notice(err.message)}finally{button.disabled=false}};
+ $("#adminForm").onsubmit=async e=>{e.preventDefault();const button=e.target.querySelector("button");button.disabled=true;notice("");try{const {data,error}=await db.auth.signInWithPassword({email:"bbillyjae@gmail.com",password:$("#adminPassword").value});if(error)throw error;const {data:profile,error:roleError}=await db.from("staff_roles").select("role").eq("user_id",data.user.id).maybeSingle();if(roleError)throw roleError;if(profile?.role!=="admin"){await db.auth.signOut();throw Error("This account is not authorized as a church administrator.");}notice("Administrator signed in successfully.",true);}catch(err){notice(err.message==="Invalid login credentials"?"Invalid credentials. Confirm the administrator password in Supabase Authentication.":err.message)}finally{button.disabled=false;$("#adminPassword").value=""}};
  $("#loginForm").onsubmit=async e=>{e.preventDefault();const {error}=await db.auth.signInWithPassword({email:$("#email").value,password:$("#password").value});if(error)notice(error.message)};
 }
 async function showSession(session){
