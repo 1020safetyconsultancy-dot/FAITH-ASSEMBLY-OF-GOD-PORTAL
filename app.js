@@ -51,6 +51,11 @@ async function showSession(session){
  role=data?.role||null;
  $("#account").innerHTML='<span>'+esc(session.user.email)+' · '+esc(role||"Role pending")+'</span> <button class="ghost" id="logout">Sign out</button>';
  $("#logout").onclick=()=>db.auth.signOut();
+ $("#changePassword").onclick=()=>formModal("Change your password",[
+  {key:"new_password",label:"New password (at least 12 characters)",type:"password",required:true},
+  {key:"confirm_password",label:"Confirm new password",type:"password",required:true}
+ ],async o=>{if(!o.new_password||o.new_password.length<12)throw Error("Use at least 12 characters");if(o.new_password!==o.confirm_password)throw Error("Passwords do not match");const {error}=await db.auth.updateUser({password:o.new_password});if(error)throw error;notice("Password updated successfully.",true)});
+
  if(!role){$("#portal").hidden=false;$("#tabs").innerHTML="";$("#view").innerHTML='<section class="panel"><h2>Awaiting staff authorization</h2><p>An administrator must assign your account a staff role in Supabase.</p></section>';return}
  nav();await render();
 }
