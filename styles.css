@@ -137,3 +137,11 @@ body:has(#auth:not([hidden])) #message{max-width:480px;margin:10px auto;text-ali
  body:has(#auth:not([hidden])) main{display:block}
  body:has(#auth:not([hidden])) #auth.panel{margin:30px auto}
 }
+
+
+/* Church service schedule photo behind the login screen */
+body:has(#auth:not([hidden])){background:#ede8dd url("assets/church-service-background.webp") center center / cover no-repeat fixed}
+body:has(#auth:not([hidden]))::before{content:"";position:fixed;inset:0;z-index:-1;background:linear-gradient(90deg,rgba(244,238,224,.13) 0%,rgba(244,238,224,.08) 47%,rgba(0,39,94,.20) 100%);pointer-events:none}
+body:has(#auth:not([hidden])) .top{background:rgba(255,255,255,.96)}
+body:has(#auth:not([hidden])) #auth.panel{background:rgba(255,255,255,.97);backdrop-filter:blur(8px);box-shadow:0 24px 58px rgba(0,27,65,.22)}
+@media(max-width:849px){body:has(#auth:not([hidden])){background-position:40% center;background-attachment:scroll}body:has(#auth:not([hidden]))::before{background:rgba(255,255,255,.24)}}
