@@ -145,3 +145,16 @@ body:has(#auth:not([hidden]))::before{content:"";position:fixed;inset:0;z-index:
 body:has(#auth:not([hidden])) .top{background:rgba(255,255,255,.96)}
 body:has(#auth:not([hidden])) #auth.panel{background:rgba(255,255,255,.97);backdrop-filter:blur(8px);box-shadow:0 24px 58px rgba(0,27,65,.22)}
 @media(max-width:849px){body:has(#auth:not([hidden])){background-position:40% center;background-attachment:scroll}body:has(#auth:not([hidden]))::before{background:rgba(255,255,255,.24)}}
+
+
+/* Avoid stretching the small service-schedule image across the whole screen */
+@media(min-width:850px){
+ body:has(#auth:not([hidden])){background-image:linear-gradient(90deg,#e9eff8 0%,#e9eff8 49%,#f5f8fc 49%,#f5f8fc 100%);background-size:auto}
+ body:has(#auth:not([hidden])) main{position:relative;isolation:isolate}
+ body:has(#auth:not([hidden])) main::before{content:"";position:absolute;z-index:-1;top:50%;left:0;transform:translateY(-50%);width:min(47%,590px);aspect-ratio:850/315;background:#e6e4dc url("assets/church-service-background.webp") center / contain no-repeat;border:7px solid white;border-radius:16px;box-shadow:0 14px 40px #00275e25}
+ body:has(#auth:not([hidden]))::before{display:none}
+}
+@media(max-width:849px){
+ body:has(#auth:not([hidden])){background:#f4f7fc}
+ body:has(#auth:not([hidden]))::before{display:none}
+}
