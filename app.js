@@ -7,7 +7,7 @@ const today=()=>new Date(Date.now()+8*3600000).toISOString().slice(0,10);
 const notice=(msg,ok=false)=>{const n=$("#message");n.textContent=msg;n.className="message"+(ok?" ok":"")};
 const configured=Boolean(conf.supabaseUrl&&conf.supabaseAnonKey);
 const db=configured?createClient(conf.supabaseUrl,conf.supabaseAnonKey,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}}):null;
-let role=null,memberCache=[],eventCache=[],activeTab=location.hash==="#attendance"?"attendance":"dashboard";
+let role=null,memberCache=[],eventCache=[],activeTab=location.hash==="#attendance"?"attendance":location.hash==="#sunday_absences"?"sunday_absences":"dashboard";
 const authRoles={dashboard:["admin","pastor","board","secretary","attendance","treasurer"],members:["admin","pastor","board","secretary","attendance","treasurer"],attendance:["admin","pastor","secretary","attendance"],sunday_absences:["admin","pastor","secretary","attendance"],offerings:["admin","treasurer"],expenses:["admin","treasurer"],reports:["admin","treasurer"],birthdays:["admin","pastor","board","secretary","attendance","treasurer"],accounts:["admin"]};
 const can=t=>Boolean(role&&authRoles[t]?.includes(role));
 const writableMembers=()=>["admin","secretary"].includes(role);
