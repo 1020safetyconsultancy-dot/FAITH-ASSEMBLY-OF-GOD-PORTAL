@@ -184,3 +184,43 @@ body:has(#auth:not([hidden])) #auth.panel{background:rgba(255,255,255,.97);backd
 }
 @media(min-width:850px) and (max-height:740px){body:has(#auth:not([hidden])) .church-schedule-showcase{min-height:580px}}
 @media(max-width:849px){.church-schedule-showcase{display:none!important}}
+
+
+/* Fast, mobile-first attendance check-in */
+.attendance-panel{background:#fff;border:1px solid #dbe5f1;border-radius:22px;padding:clamp(16px,3vw,30px);box-shadow:0 8px 27px rgba(0,39,94,.07)}
+.attendance-heading{display:flex;align-items:center;justify-content:space-between;gap:18px;flex-wrap:wrap;margin-bottom:24px}
+.attendance-kicker{font-weight:850;letter-spacing:2px;font-size:10px;color:#4b72a3}
+.attendance-heading h1{font-size:clamp(26px,3vw,36px);letter-spacing:-1px;margin:5px 0 3px;color:#00275e}
+.attendance-heading p{font-size:14px;margin:0;color:#687d98}
+.attendance-new{border-radius:10px;padding:13px 18px;background:#00275e;font-weight:750}
+.attendance-controls{display:flex;justify-content:space-between;align-items:end;gap:20px;flex-wrap:wrap;background:#f0f5fb;border:1px solid #e1e9f5;border-radius:17px;padding:17px;margin-bottom:22px}
+.attendance-controls>label{margin:0;flex:1;min-width:230px;color:#355779}
+.attendance-controls select{font-weight:650;margin:7px 0 0;background:#fff}
+.attendance-stats{display:flex;gap:10px;flex-wrap:wrap}
+.attendance-stats>div{min-width:100px;text-align:center;background:#fff;padding:8px 12px;border:1px solid #e1e8f2;border-radius:12px}
+.attendance-stats strong{display:block;font-size:27px;line-height:1.2;color:#00275e}
+.attendance-stats small{display:block;font-size:11px;color:#617d99}
+.attendance-search-bar{display:flex;gap:15px;flex-wrap:wrap;align-items:end;justify-content:space-between;margin-bottom:12px}
+.attendance-search-bar>label{flex:1;min-width:220px;margin:0}
+.attendance-search-bar input{margin:6px 0 0;min-height:48px;border-radius:10px;border:1px solid #b6c9e3;background:#fff}
+.attendance-filters{display:flex;gap:5px;padding:4px;background:#edf2f9;border-radius:12px}
+.attendance-filters button{background:transparent;color:#355b88;font-size:12px;font-weight:750;padding:10px 12px;border-radius:9px}
+.attendance-filters button.active{background:#00275e;color:white}
+.attendance-result{font-size:12px;color:#617891;margin:0 0 9px}
+.attendance-list{display:grid;gap:8px;max-height:570px;overflow:auto;padding:2px 3px 3px}
+.attendance-person{display:flex;align-items:center;gap:12px;padding:12px 14px;background:#fff;border:1px solid #dfe8f3;border-radius:13px;min-width:0}
+.attendance-person.checked{background:#f2f8f6;border-color:#c5e1d6}
+.attendance-avatar{display:grid;place-items:center;flex:0 0 42px;height:42px;border-radius:50%;background:#e4edf9;color:#00275e;font-weight:800;font-size:13px}
+.attendance-person-info{flex:1;min-width:100px;display:flex;flex-direction:column}
+.attendance-person-info strong{font-size:14px;overflow-wrap:anywhere;color:#102f5b}
+.attendance-person-info small{color:#69819a;font-size:12px}
+.attendance-status{font-size:12px;font-weight:750;white-space:nowrap}
+.attendance-status.present{color:#17694f}
+.attendance-status.pending{color:#8392a6}
+.attendance-person button{white-space:nowrap;padding:10px 15px;border-radius:9px;font-weight:750;font-size:13px}
+.attendance-check{background:#00275e}
+.attendance-undo{background:#e5f1ed;color:#20634d}
+.attendance-undo:hover{background:#d5e9e1}
+.attendance-loading{font-size:13px;color:#45698f;min-height:17px;margin-bottom:7px}
+.attendance-empty{background:#f3f7fd;border:1px dashed #b9cde6;border-radius:13px;padding:22px;text-align:center;color:#5b7797}
+@media(max-width:670px){.attendance-stats{width:100%;display:grid;grid-template-columns:repeat(3,1fr)}.attendance-stats>div{min-width:0}.attendance-controls>label{min-width:100%}.attendance-search-bar>label{min-width:100%}.attendance-filters{width:100%}.attendance-filters button{flex:1;padding:9px 4px}.attendance-person{flex-wrap:wrap;gap:8px;padding:10px}.attendance-avatar{flex-basis:36px;height:36px}.attendance-status{margin-left:44px;order:3}.attendance-person button{margin-left:auto}.attendance-list{max-height:65vh}.attendance-heading{align-items:stretch}.attendance-new{width:100%}}
