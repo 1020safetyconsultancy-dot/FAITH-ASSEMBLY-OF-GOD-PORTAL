@@ -283,3 +283,34 @@ body:has(#auth:not([hidden])) #auth.panel{background:rgba(255,255,255,.97);backd
 .ea-noevents{background:#f3f7fc;border:1px dashed #bfd1e7;padding:26px;border-radius:13px;color:#5c7696;grid-column:1/-1;text-align:center}
 #eaBusy{min-height:14px;color:#426a99;font-size:12px}
 @media(max-width:640px){.ea-head>.attendance-new{width:100%}.ea-event-header label{width:100%}.ea-events{grid-template-columns:1fr}.ea-counts{width:100%;grid-template-columns:repeat(3,minmax(0,1fr))}.ea-counts>div{padding:8px 4px}.ea-counts strong{font-size:24px}.ea-filter-group{width:100%}.ea-filter-group button{flex:1;font-size:11px;padding:9px 5px}.ea-search-row label{width:100%}.ea-person{gap:8px;flex-wrap:wrap}.ea-person-state{margin-left:50px}.ea-person button{margin-left:auto}.ea-members{max-height:65vh}}
+
+
+/* Church birthday reminders */
+.dash-birthdays,.birthdays-page{background:#fff;border:1px solid #dce5f2;border-radius:18px;padding:23px;box-shadow:0 7px 24px rgba(0,39,94,.07)}
+.dash-birthdays{margin:0 0 23px}
+.birthday-highlight{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px}
+.birthday-today-banner{grid-column:1/-1;padding:12px 15px;margin:0 0 4px;background:#e7f2fd;color:#0c4989;font-size:14px;font-weight:800;border-radius:12px}
+.birthday-dash-item,.birthday-entry{display:flex;align-items:center;gap:12px;padding:12px 13px;background:#f3f7fd;border:1px solid #dfe9f6;border-radius:13px;min-width:0}
+.birthday-dash-item>div,.birthday-entry>div{display:flex;flex:1;flex-direction:column;min-width:0}
+.birthday-dash-item>div strong,.birthday-entry>div strong{font-size:14px;color:#00275e;overflow-wrap:anywhere}
+.birthday-dash-item>div small,.birthday-entry>div small{color:#607b9d;font-size:12px}
+.birthday-date{display:flex;flex-direction:column;align-items:center;justify-content:center;width:52px;height:55px;flex:0 0 52px;background:#fff;border:1px solid #d5e2f3;border-radius:10px;color:#00275e}
+.birthday-date strong{font-size:12px;line-height:1.2;text-transform:uppercase}
+.birthday-date small{font-size:21px!important;font-weight:800;color:#00275e!important}
+.birthday-balloon{font-size:20px}
+.birthday-none{padding:18px;background:#f2f6fc;border-radius:12px;color:#69809d;margin:0}
+.birthdays-page{max-width:1100px;margin:auto}
+.birthdays-hero{display:flex;align-items:center;justify-content:space-between;gap:15px;flex-wrap:wrap;background:linear-gradient(120deg,#00275e,#0b4c93);color:#fff;border-radius:17px;padding:25px;margin-bottom:23px}
+.birthdays-hero .attendance-kicker{color:#cbdcf3}
+.birthdays-hero h1{color:#fff;font-size:clamp(25px,3vw,36px);margin:7px 0}
+.birthdays-hero p{color:#dce8f6;max-width:580px;font-size:14px;margin:0}
+.birthdays-today-count{display:flex;align-items:center;flex-direction:column;padding:15px 22px;background:#ffffff1d;border-radius:13px}
+.birthdays-today-count strong{font-size:38px;line-height:1.1}
+.birthdays-today-count span{font-size:12px}
+.birthday-sections{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.birthday-sections section{min-width:0}
+.birthday-sections h2{font-size:19px;color:#00275e}
+.birthday-sections label{font-size:13px}
+.birthday-sections input{background:#fff;margin:5px 0 12px}
+.birthday-roster{display:grid;gap:9px;max-height:560px;overflow:auto}
+@media(max-width:720px){.birthday-sections{grid-template-columns:1fr}.birthday-highlight{grid-template-columns:1fr}.dash-birthdays,.birthdays-page{padding:16px}}
