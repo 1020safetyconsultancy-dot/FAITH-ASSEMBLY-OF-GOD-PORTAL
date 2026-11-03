@@ -97,9 +97,80 @@ function memberEditor(m){formModal(m?"Edit member":"Register member",[
  {key:"address",label:"Address",value:m?.address||""},{key:"birthday",label:"Birthday",type:"date",value:m?.birthday||""},
  {key:"baptism_date",label:"Baptism date",type:"date",value:m?.baptism_date||""},{key:"notes",label:"Notes",type:"textarea"}
  ],async data=>{data.consent_recorded=!!m?.consent_recorded;if(m){const {error}=await db.from("members").update(data).eq("id",m.id);if(error)throw error;notice("Member updated.",true);await render()}else await save("members",data)})}
-async function attendance(){await Promise.all([loadMembers(),loadEvents()]);const checks=await query("attendance","*","checked_in_at");const v=$("#view");v.innerHTML='<section class="panel"><div class="sectionhead"><h1>Attendance</h1>'+(canAttend()?'<button id="newEvent">+ New service/event</button>':"")+'</div><div class="toolbar"><label>Choose service<select id="eventSelect">'+opts(eventCache,"id","title")+'</select></label>'+(canAttend()?'<button id="checkIn">+ Check in member</button>':"")+'</div><div id="checks"></div></section>';
- const sel=$("#eventSelect");if(!eventCache.length){$("#checks").innerHTML='<p>No services created yet.</p>';if($("#checkIn"))$("#checkIn").disabled=true}else{const draw=()=>{const selected=eventCache.find(e=>e.id===sel.value);const filtered=checks.filter(x=>x.event_id===sel.value);$("#checks").innerHTML='<h3>'+esc(selected?.title)+' · '+esc(selected?.event_date)+' · '+filtered.length+' present</h3>'+table(["Member","Checked in",...(canAttend()?["Action"]:[])],filtered.map(a=>'<tr><td>'+esc(memberCache.find(m=>m.id===a.member_id)?.full_name||"Unknown")+'</td><td>'+esc(new Date(a.checked_in_at).toLocaleString("en-PH",{timeZone:"Asia/Manila"}))+'</td>'+(canAttend()?'<td><button class="ghost" data-remove="'+esc(a.id)+'">Undo</button></td>':"")+'</tr>'));$("#checks").querySelectorAll("[data-remove]").forEach(b=>b.onclick=async()=>{if(!confirm("Remove this check-in?"))return;const {error}=await db.from("attendance").delete().eq("id",b.dataset.remove);if(error)notice(error.message);else await render()})};sel.onchange=draw;draw()}
- if(canAttend()){ $("#newEvent").onclick=()=>formModal("Create service / event",[{key:"title",label:"Title",required:true},{key:"event_date",label:"Date",type:"date",value:today(),required:true},{key:"event_type",label:"Event type",value:"Sunday Service"}],o=>save("church_events",o));$("#checkIn").onclick=()=>formModal("Member check-in",[{key:"member_id",label:"Member",type:"select",options:opts(memberCache)}],async o=>{if(!o.member_id)throw Error("No member available");await save("attendance",{event_id:sel.value,member_id:o.member_id})})}
+async function attendance(){
+ await Promise.all([loadMembers(),loadEvents()]);
+ const writable=canAttend();
+ const activeMembers=memberCache.filter(m=>m.status==="active").sort((a,b)=>a.full_name.localeCompare(b.full_name));
+ const sortedEvents=eventCache.slice().sort((a,b)=>b.event_date.localeCompare(a.event_date)||a.title.localeCompare(b.title));
+ const initialEvent=sortedEvents.find(e=>e.event_date===today())||sortedEvents[0];
+ const v=$("#view");
+ let chosenEvent=initialEvent?.id||"";
+ let checked=new Map(),search="",filter="all",loading=false;
+ const eventOptions=sortedEvents.map(e=>'<option value="'+esc(e.id)+'">'+esc(e.event_date+" • "+e.title)+'</option>').join("");
+ v.innerHTML='<section class="attendance-panel"><div class="attendance-heading"><div><span class="attendance-kicker">CHURCH ATTENDANCE</span><h1>Quick Check-in</h1><p>Search for a member and tap once to record attendance.</p></div>'+(writable?'<button class="attendance-new" id="newEvent">+ New service</button>':"")+'</div>'+
+ '<div class="attendance-controls"><label for="eventSelect">Service / event<select id="eventSelect">'+eventOptions+'</select></label>'+
+ '<div class="attendance-stats"><div><strong id="attPresent">0</strong><small>Present</small></div><div><strong id="attRemaining">0</strong><small>Not checked in</small></div><div><strong id="attTotal">0</strong><small>Active members</small></div></div></div>'+
+ '<div id="attEmptyService" class="attendance-empty" hidden>No services have been created yet. '+(writable?'Choose <strong>+ New service</strong> to begin taking attendance.':'Ask an administrator to create a service.')+'</div>'+
+ '<div id="attWorking" class="attendance-loading" role="status" aria-live="polite"></div>'+
+ '<div id="attRoster"><div class="attendance-search-bar"><label for="attSearch">Find a member<input id="attSearch" type="search" autocomplete="off" placeholder="Type a name to find a member…"></label><div class="attendance-filters" role="group" aria-label="Show members"><button type="button" data-filter="all" class="active">All</button><button type="button" data-filter="absent">Not checked in</button><button type="button" data-filter="present">Present</button></div></div>'+
+ '<p id="attResultInfo" class="attendance-result" aria-live="polite"></p><div id="attMemberList" class="attendance-list"></div></div></section>';
+ const select=$("#eventSelect");if(chosenEvent)select.value=chosenEvent;
+ const setBusy=(on,msg="")=>{loading=on;$("#attWorking").textContent=msg;select.disabled=on;v.querySelectorAll("[data-member]").forEach(b=>b.disabled=on)};
+ const updateCount=()=>{const present=activeMembers.filter(m=>checked.has(m.id)).length;$("#attPresent").textContent=String(present);$("#attRemaining").textContent=String(activeMembers.length-present);$("#attTotal").textContent=String(activeMembers.length)};
+ function draw(){
+  updateCount();
+  const matching=activeMembers.filter(m=>{
+    const match=(m.full_name+" "+(m.ministry||"")).toLowerCase().includes(search);
+    return match&&(filter==="all"||(filter==="present"?checked.has(m.id):!checked.has(m.id)));
+  });
+  $("#attResultInfo").textContent=matching.length+" member"+(matching.length===1?"":"s")+" shown";
+  $("#attMemberList").innerHTML=matching.map(m=>{
+   const present=checked.has(m.id);
+   const initials=m.full_name.trim().split(/\s+/).slice(0,2).map(p=>p[0]||"").join("").toUpperCase();
+   return '<div class="attendance-person'+(present?' checked':'')+'"><div class="attendance-avatar" aria-hidden="true">'+esc(initials)+'</div><div class="attendance-person-info"><strong>'+esc(m.full_name)+'</strong><small>'+esc(m.ministry||"Church member")+'</small></div><span class="attendance-status '+(present?'present':'pending')+'">'+(present?'✓ Present':'Not checked in')+'</span>'+(writable?'<button type="button" data-member="'+esc(m.id)+'" class="'+(present?'attendance-undo':'attendance-check')+'" aria-label="'+(present?'Undo attendance for ':'Mark present: ')+esc(m.full_name)+'">'+(present?'Undo':'✓ Check in')+'</button>':"")+'</div>'
+  }).join("")||'<div class="attendance-empty">No matching members. Try another name or filter.</div>';
+  v.querySelectorAll("[data-member]").forEach(b=>b.onclick=()=>toggleMember(b.dataset.member));
+ }
+ async function loadCheckins(){
+  if(!chosenEvent){$("#attEmptyService").hidden=false;$("#attRoster").hidden=true;checked.clear();updateCount();return}
+  $("#attEmptyService").hidden=true;$("#attRoster").hidden=false;
+  setBusy(true,"Loading attendance…");
+  const {data,error}=await db.from("attendance").select("id,member_id,checked_in_at").eq("event_id",chosenEvent).order("checked_in_at",{ascending:false}).limit(10000);
+  if(error){setBusy(false);notice(error.message);return}
+  checked=new Map((data||[]).map(x=>[x.member_id,x.id]));
+  setBusy(false);draw();
+ }
+ async function toggleMember(memberId){
+  if(!writable||loading||!chosenEvent)return;
+  const member=activeMembers.find(m=>m.id===memberId);if(!member)return;
+  const rowId=checked.get(memberId),isRemoving=!!rowId;
+  setBusy(true,isRemoving?"Removing check-in…":"Recording attendance…");
+  try{
+   if(isRemoving){
+    const {error}=await db.from("attendance").delete().eq("id",rowId);
+    if(error)throw error;checked.delete(memberId);
+    notice(member.full_name+" — attendance undone.",true);
+   }else{
+    const {data,error}=await db.from("attendance").insert({event_id:chosenEvent,member_id:memberId}).select("id").single();
+    if(error){if(error.code==="23505"){await loadCheckins();notice("This member is already checked in.",true);return}throw error}
+    checked.set(memberId,data.id);
+    notice(member.full_name+" — checked in!",true);
+   }
+  }catch(e){notice(e.message)}finally{setBusy(false);draw()}
+ }
+ $("#attSearch").oninput=e=>{search=e.target.value.trim().toLowerCase();draw()};
+ v.querySelectorAll("[data-filter]").forEach(b=>b.onclick=()=>{filter=b.dataset.filter;v.querySelectorAll("[data-filter]").forEach(x=>x.classList.toggle("active",x===b));draw()});
+ select.onchange=async()=>{chosenEvent=select.value;await loadCheckins()};
+ if(writable)$("#newEvent").onclick=()=>formModal("Create service / event",[
+  {key:"title",label:"Service name",required:true,value:"Sunday Worship Service"},
+  {key:"event_date",label:"Service date",type:"date",required:true,value:today()},
+  {key:"event_type",label:"Event type",type:"select",options:"<option>Sunday Service</option><option>Midweek Service</option><option>Prayer Meeting</option><option>Special Event</option>"}
+ ],async obj=>{
+  const {data,error}=await db.from("church_events").insert(obj).select("id").single();if(error)throw error;
+  notice("Service created. Ready for attendance!",true);
+  await attendance();const newSelect=$("#eventSelect");if(newSelect){newSelect.value=data.id;newSelect.dispatchEvent(new Event("change"))}
+ });
+ await loadCheckins();
 }
 async function finance(kind){const isOffer=kind==="offerings",items=await query(kind,"*","entry_date");await loadMembers();const v=$("#view");
  v.innerHTML='<section class="panel"><div class="sectionhead"><h1>'+(isOffer?"Tithes & Offerings":"Expenses")+'</h1><button id="newFinance">+ Record '+(isOffer?"offering":"expense")+'</button></div><div class="toolbar"><label>Filter month<input id="financeMonth" type="month" value="'+today().slice(0,7)+'"></label><button id="allFinance" class="ghost">Show all</button></div><div id="financeTable"></div></section>';
