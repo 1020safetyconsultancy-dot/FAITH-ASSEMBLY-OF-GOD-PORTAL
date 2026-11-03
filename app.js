@@ -59,7 +59,7 @@ async function showSession(session){
  if(!role){$("#portal").hidden=false;$("#tabs").innerHTML="";$("#view").innerHTML='<section class="panel"><h2>Awaiting staff authorization</h2><p>An administrator must assign your account a staff role in Supabase.</p></section>';return}
  nav();await render();
 }
-function nav(){const list=[["dashboard","Overview"],["members","Members"],["attendance","Attendance"],["offerings","Tithes & Offerings"],["expenses","Expenses"],["reports","Reports"],["accounts","Accounts"]];
+function nav(){const list=[["dashboard","Overview"],["members","Members"],["attendance","Attendance & Events"],["offerings","Tithes & Offerings"],["expenses","Expenses"],["reports","Reports"],["accounts","Accounts"]];
  $("#tabs").innerHTML=list.filter(([key])=>can(key)).map(([key,label])=>'<button data-tab="'+key+'" class="'+(activeTab===key?"active":"")+'">'+label+"</button>").join("");
  $("#tabs").querySelectorAll("button").forEach(b=>b.onclick=()=>{activeTab=b.dataset.tab;nav();render()});
 }
@@ -85,7 +85,7 @@ async function dashboard(){
  const eventHTML=recentEvents.length?recentEvents.map(e=>'<div class="dash-event"><span class="dash-date"><strong>'+esc(e.event_date.slice(8,10))+'</strong><small>'+esc(new Date(e.event_date+"T12:00:00").toLocaleString("en-PH",{month:"short"}))+'</small></span><span class="dash-event-info"><strong>'+esc(e.title)+'</strong><small>'+esc(e.event_type)+'</small></span><span class="dash-event-dot">✦</span></div>').join(""):'<div class="dash-empty">No events recorded yet. Add your next Sunday service in Attendance.</div>';
  $("#view").innerHTML='<div class="church-dashboard"><section class="dash-hero"><div class="dash-hero-copy"><span class="dash-kicker">✦ FAITH ASSEMBLY OF GOD • CHURCH PORTAL</span><h1>Growing together <em>in faith.</em></h1><p>Welcome back. Here is a beautiful overview of your church community, gatherings, and stewardship.</p><span class="dash-date-label">'+esc(new Date().toLocaleDateString("en-PH",{timeZone:"Asia/Manila",weekday:"long",month:"long",day:"numeric",year:"numeric"}))+'</span>'+(can("attendance")?'<button class="dash-attendance-shortcut" id="dashQuickAttendance" type="button">✓ Take Attendance</button>':"")+'</div><div class="dash-hero-art" aria-hidden="true"><div class="dash-halo halo-one"></div><div class="dash-halo halo-two"></div><img class="dash-logo" src="assets/faog-logo.webp" alt="Faith Assembly of God official logo"><div class="dash-spark one">✦</div><div class="dash-spark two">✧</div></div></section><div class="dash-title-row"><div><span class="dash-eyebrow">AT A GLANCE</span><h2>Our Church Community</h2></div><span class="dash-live"><span></span>Live data</span></div><section class="dash-stat-grid">'+statHTML+'</section><div class="dash-lower"><section class="dash-events"><div class="dash-section-heading"><div><span class="dash-eyebrow">WORSHIP & FELLOWSHIP</span><h2>Recent Gatherings</h2></div></div>'+eventHTML+'</section><aside class="dash-verse"><span class="dash-eyebrow">VERSE OF ENCOURAGEMENT</span><span class="dash-quote-mark">“</span><blockquote>Let all that you do be done in love.</blockquote><span class="dash-scripture">1 Corinthians 16:14</span><div class="dash-verse-decor">✝</div></aside></div>'+financial+'<p class="dash-footnote">Faith Assembly of God · Serving the community with faith, care, and integrity</p></div>';
  const reportBtn=$("#dashReports");if(reportBtn)reportBtn.onclick=()=>{activeTab="reports";nav();render()};
- const checkinBtn=$("#dashQuickAttendance");if(checkinBtn)checkinBtn.onclick=()=>{activeTab="attendance";nav();render()};
+ const checkinBtn=$("#dashQuickAttendance");if(checkinBtn)checkinBtn.onclick=()=>{activeTab="attendance";location.hash="attendance";nav();render()};
 }
 async function members(){await loadMembers();const v=$("#view");v.innerHTML='<section class="panel"><div class="sectionhead"><h1>Member Directory</h1>'+(writableMembers()?'<button id="addMember">+ Add member</button>':"")+'</div><div class="toolbar"><input id="searchMembers" placeholder="Search names, ministry, status" aria-label="Search members"></div><div id="memberTable"></div></section>';
  const draw=()=>{const q=$("#searchMembers").value.toLowerCase();const list=memberCache.filter(m=>[m.full_name,m.ministry,m.status].some(x=>String(x||"").toLowerCase().includes(q)));$("#memberTable").innerHTML=table(["Name","Membership started","Ministry","Status","Contact",...(writableMembers()?["Action"]:[])],list.map(m=>'<tr><td>'+esc(m.full_name)+'</td><td>'+esc(m.member_since)+'</td><td>'+esc(m.ministry)+'</td><td><span class="badge">'+esc(m.status)+'</span></td><td>'+esc(m.phone)+'</td>'+(writableMembers()?'<td><button class="ghost small" data-edit="'+esc(m.id)+'">Edit</button></td>':"")+'</tr>'));$("#memberTable").querySelectorAll("[data-edit]").forEach(btn=>btn.onclick=()=>memberEditor(memberCache.find(m=>m.id===btn.dataset.edit)))};
@@ -101,77 +101,105 @@ function memberEditor(m){formModal(m?"Edit member":"Register member",[
 async function attendance(){
  await Promise.all([loadMembers(),loadEvents()]);
  const writable=canAttend();
- const activeMembers=memberCache.filter(m=>m.status==="active").sort((a,b)=>a.full_name.localeCompare(b.full_name));
- const sortedEvents=eventCache.slice().sort((a,b)=>b.event_date.localeCompare(a.event_date)||a.title.localeCompare(b.title));
- const initialEvent=sortedEvents.find(e=>e.event_date===today())||sortedEvents[0];
+ const allMembers=memberCache.filter(m=>m.status==="active").sort((a,b)=>a.full_name.localeCompare(b.full_name));
+ const events=eventCache.slice().sort((a,b)=>b.event_date.localeCompare(a.event_date)||a.title.localeCompare(b.title));
+ const savedEventId=sessionStorage.getItem("faog_attendance_event");
+ let chosenEvent=events.find(e=>e.id===savedEventId)?.id||events.find(e=>e.event_date===today())?.id||events[0]?.id||"";
+ let checked=new Map(),search="",filter="all",eventSearch="",loading=false;
  const v=$("#view");
- let chosenEvent=initialEvent?.id||"";
- let checked=new Map(),search="",filter="all",loading=false;
- const eventOptions=sortedEvents.map(e=>'<option value="'+esc(e.id)+'">'+esc(e.event_date+" • "+e.title)+'</option>').join("");
- v.innerHTML='<section class="attendance-panel"><div class="attendance-heading"><div><span class="attendance-kicker">CHURCH ATTENDANCE</span><h1>Quick Check-in</h1><p>Search for a member and tap once to record attendance.</p></div>'+(writable?'<button class="attendance-new" id="newEvent">+ New service</button>':"")+'</div>'+
- '<div class="attendance-controls"><label for="eventSelect">Service / event<select id="eventSelect">'+eventOptions+'</select></label>'+
- '<div class="attendance-stats"><div><strong id="attPresent">0</strong><small>Present</small></div><div><strong id="attRemaining">0</strong><small>Not checked in</small></div><div><strong id="attTotal">0</strong><small>Active members</small></div></div></div>'+
- '<div id="attEmptyService" class="attendance-empty" hidden>No services have been created yet. '+(writable?'Choose <strong>+ New service</strong> to begin taking attendance.':'Ask an administrator to create a service.')+'</div>'+
- '<div id="attWorking" class="attendance-loading" role="status" aria-live="polite"></div>'+
- '<div id="attRoster"><div class="attendance-search-bar"><label for="attSearch">Find a member<input id="attSearch" type="search" autocomplete="off" placeholder="Type a name to find a member…"></label><div class="attendance-filters" role="group" aria-label="Show members"><button type="button" data-filter="all" class="active">All</button><button type="button" data-filter="absent">Not checked in</button><button type="button" data-filter="present">Present</button></div></div>'+
- '<p id="attResultInfo" class="attendance-result" aria-live="polite"></p><div id="attMemberList" class="attendance-list"></div></div></section>';
- const select=$("#eventSelect");if(chosenEvent)select.value=chosenEvent;
- const setBusy=(on,msg="")=>{loading=on;$("#attWorking").textContent=msg;select.disabled=on;v.querySelectorAll("[data-member]").forEach(b=>b.disabled=on)};
- const updateCount=()=>{const present=activeMembers.filter(m=>checked.has(m.id)).length;$("#attPresent").textContent=String(present);$("#attRemaining").textContent=String(activeMembers.length-present);$("#attTotal").textContent=String(activeMembers.length)};
- function draw(){
-  updateCount();
-  const matching=activeMembers.filter(m=>{
-    const match=(m.full_name+" "+(m.ministry||"")).toLowerCase().includes(search);
-    return match&&(filter==="all"||(filter==="present"?checked.has(m.id):!checked.has(m.id)));
-  });
-  $("#attResultInfo").textContent=matching.length+" member"+(matching.length===1?"":"s")+" shown";
-  $("#attMemberList").innerHTML=matching.map(m=>{
+ v.innerHTML='<div class="easy-attendance">'+
+  '<div class="ea-head"><div><span class="attendance-kicker">CHURCH SERVICES & ACTIVITIES</span><h1>Attendance & Events</h1><p>Choose any event below, then tap <strong>Check in</strong> beside a member.</p></div>'+
+  (writable?'<button id="eaCreate" class="attendance-new">+ Create Event</button>':"")+'</div>'+
+  '<div class="ea-event-header"><div><h2>All Church Events <span id="eaEventTotal" class="ea-total"></span></h2><p>Every recorded service and event appears here.</p></div><label for="eaEventSearch">Search events<input id="eaEventSearch" type="search" placeholder="Event name or date…"></label></div>'+
+  '<div id="eaEvents" class="ea-events"></div>'+
+  '<section class="ea-roster" id="eaRoster"><div class="ea-roster-head"><div><span class="attendance-kicker">FAST ATTENDANCE</span><h2 id="eaSelectedTitle">Select an event</h2><p id="eaSelectedDate"></p></div><div class="ea-counts"><div><strong id="eaPresent">0</strong><span>Present</span></div><div><strong id="eaNotPresent">0</strong><span>Not checked in</span></div><div><strong id="eaMemberTotal">0</strong><span>Total active</span></div></div></div>'+
+  '<div class="ea-search-row"><label for="eaMemberSearch">Find a member<input id="eaMemberSearch" type="search" placeholder="Search member name or ministry…" autocomplete="off"></label><div class="ea-filter-group"><button type="button" data-ea-filter="all" class="active">All Members</button><button type="button" data-ea-filter="absent">Not Checked In</button><button type="button" data-ea-filter="present">Present</button></div></div>'+
+  '<div id="eaBusy" role="status" aria-live="polite"></div><p class="ea-list-count" id="eaShown"></p><div id="eaMembers" class="ea-members"></div></section></div>';
+ const $v=selector=>v.querySelector(selector);
+ let counts=new Map();
+ // Load per-event attendance totals for the event cards without exposing member names.
+ const {data:summary,error:summaryError}=await db.from("attendance").select("event_id").limit(10000);
+ if(!summaryError)for(const record of summary||[])counts.set(record.event_id,(counts.get(record.event_id)||0)+1);
+ else notice("Event counts could not be loaded: "+summaryError.message);
+ function drawEvents(){
+  $v("#eaEventTotal").textContent="("+events.length+")";
+  const shown=events.filter(e=>(e.title+" "+e.event_type+" "+e.event_date).toLowerCase().includes(eventSearch));
+  $v("#eaEvents").innerHTML=shown.map(e=>{
+   const active=e.id===chosenEvent;
+   const date=new Date(e.event_date+"T12:00:00");
+   const formatted=date.toLocaleDateString("en-PH",{month:"short",day:"numeric",year:"numeric"});
+   return '<article class="ea-event'+(active?" selected":"")+'"><div class="ea-event-icon" aria-hidden="true">✝</div><div class="ea-event-detail"><span class="ea-event-type">'+esc(e.event_type||"Church event")+'</span><h3>'+esc(e.title)+'</h3><p>📅 '+esc(formatted)+'</p><span class="ea-event-count">'+(counts.get(e.id)||0)+' checked in</span></div><button type="button" data-ea-event="'+esc(e.id)+'" class="ea-open">'+(active?"✓ Selected":"Take Attendance →")+'</button></article>';
+  }).join("")||'<div class="ea-noevents">No matching events. '+(writable?"Select <strong>+ Create Event</strong> to add one.":"Ask the administrator to add an event.")+'</div>';
+  $v("#eaEvents").querySelectorAll("[data-ea-event]").forEach(btn=>btn.onclick=()=>selectEvent(btn.dataset.eaEvent));
+ }
+ function updateCounts(){
+  const present=allMembers.filter(m=>checked.has(m.id)).length;
+  $v("#eaPresent").textContent=String(present);
+  $v("#eaNotPresent").textContent=String(allMembers.length-present);
+  $v("#eaMemberTotal").textContent=String(allMembers.length);
+  if(chosenEvent)counts.set(chosenEvent,checked.size);
+ }
+ function drawMembers(){
+  updateCounts();
+  const shown=allMembers.filter(m=>(m.full_name+" "+(m.ministry||"")).toLowerCase().includes(search)&&(filter==="all"||(filter==="present"?checked.has(m.id):!checked.has(m.id))));
+  $v("#eaShown").textContent=shown.length+" member"+(shown.length===1?"":"s")+" shown";
+  $v("#eaMembers").innerHTML=shown.map(m=>{
    const present=checked.has(m.id);
-   const initials=m.full_name.trim().split(/\s+/).slice(0,2).map(p=>p[0]||"").join("").toUpperCase();
-   return '<div class="attendance-person'+(present?' checked':'')+'"><div class="attendance-avatar" aria-hidden="true">'+esc(initials)+'</div><div class="attendance-person-info"><strong>'+esc(m.full_name)+'</strong><small>'+esc(m.ministry||"Church member")+'</small></div><span class="attendance-status '+(present?'present':'pending')+'">'+(present?'✓ Present':'Not checked in')+'</span>'+(writable?'<button type="button" data-member="'+esc(m.id)+'" class="'+(present?'attendance-undo':'attendance-check')+'" aria-label="'+(present?'Undo attendance for ':'Mark present: ')+esc(m.full_name)+'">'+(present?'Undo':'✓ Check in')+'</button>':"")+'</div>'
-  }).join("")||'<div class="attendance-empty">No matching members. Try another name or filter.</div>';
-  v.querySelectorAll("[data-member]").forEach(b=>b.onclick=()=>toggleMember(b.dataset.member));
+   const initials=m.full_name.trim().split(/\s+/).slice(0,2).map(p=>p.charAt(0)).join("").toUpperCase();
+   return '<div class="ea-person'+(present?" is-present":"")+'"><span class="ea-avatar">'+esc(initials)+'</span><div class="ea-person-details"><strong>'+esc(m.full_name)+'</strong><small>'+esc(m.ministry||"Church member")+'</small></div><span class="ea-person-state">'+(present?"✓ Present":"Not checked in")+'</span>'+(writable?'<button type="button" data-ea-member="'+esc(m.id)+'" class="'+(present?"ea-undo":"ea-check")+'">'+(present?"Undo":"✓ Check in")+'</button>':"")+'</div>';
+  }).join("")||'<div class="ea-noevents">No matching members found.</div>';
+  $v("#eaMembers").querySelectorAll("[data-ea-member]").forEach(button=>button.onclick=()=>toggleMember(button.dataset.eaMember));
  }
- async function loadCheckins(){
-  if(!chosenEvent){$("#attEmptyService").hidden=false;$("#attRoster").hidden=true;checked.clear();updateCount();return}
-  $("#attEmptyService").hidden=true;$("#attRoster").hidden=false;
-  setBusy(true,"Loading attendance…");
-  const {data,error}=await db.from("attendance").select("id,member_id,checked_in_at").eq("event_id",chosenEvent).order("checked_in_at",{ascending:false}).limit(10000);
-  if(error){setBusy(false);notice(error.message);return}
+ function busy(value,message=""){
+  loading=value;$v("#eaBusy").textContent=message;
+  $v("#eaEvents").querySelectorAll("button").forEach(b=>b.disabled=value);
+  $v("#eaMembers").querySelectorAll("button").forEach(b=>b.disabled=value);
+ }
+ async function selectEvent(id){
+  const event=events.find(e=>e.id===id);if(!event||loading)return;
+  chosenEvent=id;sessionStorage.setItem("faog_attendance_event",id);
+  $v("#eaRoster").hidden=false;
+  $v("#eaSelectedTitle").textContent=event.title;
+  $v("#eaSelectedDate").textContent=event.event_date+" • "+(event.event_type||"Church event");
+  drawEvents();busy(true,"Loading event attendance…");
+  const {data,error}=await db.from("attendance").select("id,member_id").eq("event_id",id).limit(10000);
+  if(error){busy(false,"Unable to load attendance.");notice(error.message);return}
   checked=new Map((data||[]).map(x=>[x.member_id,x.id]));
-  setBusy(false);draw();
+  counts.set(id,checked.size);
+  busy(false);drawEvents();drawMembers();
  }
- async function toggleMember(memberId){
+ async function toggleMember(id){
   if(!writable||loading||!chosenEvent)return;
-  const member=activeMembers.find(m=>m.id===memberId);if(!member)return;
-  const rowId=checked.get(memberId),isRemoving=!!rowId;
-  setBusy(true,isRemoving?"Removing check-in…":"Recording attendance…");
+  const member=allMembers.find(m=>m.id===id);if(!member)return;
+  const existing=checked.get(id);busy(true,existing?"Removing attendance…":"Saving attendance…");
   try{
-   if(isRemoving){
-    const {error}=await db.from("attendance").delete().eq("id",rowId);
-    if(error)throw error;checked.delete(memberId);
-    notice(member.full_name+" — attendance undone.",true);
+   if(existing){
+    const {error}=await db.from("attendance").delete().eq("id",existing);if(error)throw error;
+    checked.delete(id);notice(member.full_name+" — removed from attendance.",true);
    }else{
-    const {data,error}=await db.from("attendance").insert({event_id:chosenEvent,member_id:memberId}).select("id").single();
-    if(error){if(error.code==="23505"){await loadCheckins();notice("This member is already checked in.",true);return}throw error}
-    checked.set(memberId,data.id);
-    notice(member.full_name+" — checked in!",true);
+    const {data,error}=await db.from("attendance").insert({event_id:chosenEvent,member_id:id}).select("id").single();
+    if(error){if(error.code==="23505"){notice("Already checked in; refreshing.",true);await selectEventAfterBusy();return}throw error}
+    checked.set(id,data.id);notice(member.full_name+" — marked present!",true);
    }
-  }catch(e){notice(e.message)}finally{setBusy(false);draw()}
+  }catch(e){notice(e.message)}finally{busy(false);drawMembers();drawEvents()}
  }
- $("#attSearch").oninput=e=>{search=e.target.value.trim().toLowerCase();draw()};
- v.querySelectorAll("[data-filter]").forEach(b=>b.onclick=()=>{filter=b.dataset.filter;v.querySelectorAll("[data-filter]").forEach(x=>x.classList.toggle("active",x===b));draw()});
- select.onchange=async()=>{chosenEvent=select.value;await loadCheckins()};
- if(writable)$("#newEvent").onclick=()=>formModal("Create service / event",[
-  {key:"title",label:"Service name",required:true,value:"Sunday Worship Service"},
-  {key:"event_date",label:"Service date",type:"date",required:true,value:today()},
-  {key:"event_type",label:"Event type",type:"select",options:"<option>Sunday Service</option><option>Midweek Service</option><option>Prayer Meeting</option><option>Special Event</option>"}
- ],async obj=>{
-  const {data,error}=await db.from("church_events").insert(obj).select("id").single();if(error)throw error;
-  notice("Service created. Ready for attendance!",true);
-  await attendance();const newSelect=$("#eventSelect");if(newSelect){newSelect.value=data.id;newSelect.dispatchEvent(new Event("change"))}
+ async function selectEventAfterBusy(){const {data,error}=await db.from("attendance").select("id,member_id").eq("event_id",chosenEvent).limit(10000);if(!error)checked=new Map((data||[]).map(x=>[x.member_id,x.id]))}
+ $v("#eaEventSearch").oninput=e=>{eventSearch=e.target.value.toLowerCase().trim();drawEvents()};
+ $v("#eaMemberSearch").oninput=e=>{search=e.target.value.toLowerCase().trim();drawMembers()};
+ $v("#eaRoster").querySelectorAll("[data-ea-filter]").forEach(button=>button.onclick=()=>{filter=button.dataset.eaFilter;$v("#eaRoster").querySelectorAll("[data-ea-filter]").forEach(x=>x.classList.toggle("active",x===button));drawMembers()});
+ if(writable)$v("#eaCreate").onclick=()=>formModal("Create church event",[
+  {key:"title",label:"Event title",value:"Sunday Worship Service",required:true},
+  {key:"event_date",label:"Event date",type:"date",value:today(),required:true},
+  {key:"event_type",label:"Event type",type:"select",options:"<option>Sunday Service</option><option>Midweek Service</option><option>Prayer Meeting</option><option>Special Event</option><option>Other</option>"}
+ ],async form=>{
+  const {data,error}=await db.from("church_events").insert(form).select("id").single();if(error)throw error;
+  sessionStorage.setItem("faog_attendance_event",data.id);
+  notice("Event created! You can now take attendance.",true);
+  await attendance();
  });
- await loadCheckins();
+ drawEvents();
+ if(chosenEvent)await selectEvent(chosenEvent);
+ else {$v("#eaRoster").hidden=true;$v("#eaEvents").innerHTML='<div class="ea-noevents">No church events yet. '+(writable?'Click <strong>+ Create Event</strong> above to start.':'Ask an administrator to create an event.')+'</div>'}
 }
 async function finance(kind){const isOffer=kind==="offerings",items=await query(kind,"*","entry_date");await loadMembers();const v=$("#view");
  v.innerHTML='<section class="panel"><div class="sectionhead"><h1>'+(isOffer?"Tithes & Offerings":"Expenses")+'</h1><button id="newFinance">+ Record '+(isOffer?"offering":"expense")+'</button></div><div class="toolbar"><label>Filter month<input id="financeMonth" type="month" value="'+today().slice(0,7)+'"></label><button id="allFinance" class="ghost">Show all</button></div><div id="financeTable"></div></section>';
