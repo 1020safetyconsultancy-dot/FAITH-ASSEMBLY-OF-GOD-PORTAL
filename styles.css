@@ -224,3 +224,7 @@ body:has(#auth:not([hidden])) #auth.panel{background:rgba(255,255,255,.97);backd
 .attendance-loading{font-size:13px;color:#45698f;min-height:17px;margin-bottom:7px}
 .attendance-empty{background:#f3f7fd;border:1px dashed #b9cde6;border-radius:13px;padding:22px;text-align:center;color:#5b7797}
 @media(max-width:670px){.attendance-stats{width:100%;display:grid;grid-template-columns:repeat(3,1fr)}.attendance-stats>div{min-width:0}.attendance-controls>label{min-width:100%}.attendance-search-bar>label{min-width:100%}.attendance-filters{width:100%}.attendance-filters button{flex:1;padding:9px 4px}.attendance-person{flex-wrap:wrap;gap:8px;padding:10px}.attendance-avatar{flex-basis:36px;height:36px}.attendance-status{margin-left:44px;order:3}.attendance-person button{margin-left:auto}.attendance-list{max-height:65vh}.attendance-heading{align-items:stretch}.attendance-new{width:100%}}
+
+/* Direct attendance shortcut on dashboard */
+.dash-attendance-shortcut{display:block;margin-top:14px;background:#fff;color:#00275e;border:1px solid #d7e4f3;padding:11px 18px;border-radius:11px;font-weight:800;box-shadow:0 5px 16px #001d4930}
+.dash-attendance-shortcut:hover{background:#e8f0fa;color:#00275e}
