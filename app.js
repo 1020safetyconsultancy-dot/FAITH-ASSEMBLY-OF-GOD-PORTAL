@@ -8,7 +8,7 @@ const notice=(msg,ok=false)=>{const n=$("#message");n.textContent=msg;n.classNam
 const configured=Boolean(conf.supabaseUrl&&conf.supabaseAnonKey);
 const db=configured?createClient(conf.supabaseUrl,conf.supabaseAnonKey,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}}):null;
 let role=null,memberCache=[],eventCache=[],activeTab=location.hash==="#attendance"?"attendance":"dashboard";
-const authRoles={dashboard:["admin","pastor","board","secretary","attendance","treasurer"],members:["admin","pastor","board","secretary","attendance","treasurer"],attendance:["admin","pastor","secretary","attendance"],offerings:["admin","treasurer"],expenses:["admin","treasurer"],reports:["admin","treasurer"],accounts:["admin"]};
+const authRoles={dashboard:["admin","pastor","board","secretary","attendance","treasurer"],members:["admin","pastor","board","secretary","attendance","treasurer"],attendance:["admin","pastor","secretary","attendance"],offerings:["admin","treasurer"],expenses:["admin","treasurer"],reports:["admin","treasurer"],birthdays:["admin","pastor","board","secretary","attendance","treasurer"],accounts:["admin"]};
 const can=t=>Boolean(role&&authRoles[t]?.includes(role));
 const writableMembers=()=>["admin","secretary"].includes(role);
 const canAttend=()=>["admin","secretary","attendance"].includes(role);
@@ -16,6 +16,27 @@ function opts(list,key="id",label="full_name"){return list.map(v=>'<option value
 function table(head,rows){return '<div class="tablewrap"><table><thead><tr>'+head.map(h=>"<th>"+esc(h)+"</th>").join("")+'</tr></thead><tbody>'+(rows.length?rows.join(""):'<tr><td colspan="'+head.length+'" class="empty">No records yet</td></tr>')+'</tbody></table></div>'}
 async function query(tableName,sel="*",order="created_at"){const {data,error}=await db.from(tableName).select(sel).order(order,{ascending:false}).limit(1000);if(error)throw error;return data||[]}
 async function save(tableName,obj){const {error}=await db.from(tableName).insert(obj);if(error)throw error;notice("Record saved successfully.",true);await render()}
+
+function birthdayItems(members,range=30){
+ const localDate=today(),start=new Date(localDate+"T12:00:00Z"),year=start.getUTCFullYear();
+ const isLeap=y=>y%4===0&&(y%100!==0||y%400===0);
+ const items=[];
+ for(const m of members){
+  if(m.status!=="active"||!m.birthday)continue;
+  const parts=String(m.birthday).split("-").map(Number);
+  if(parts.length!==3||!parts[1]||!parts[2])continue;
+  let best=null;
+  for(const y of [year,year+1]){
+   const month=parts[1],day=month===2&&parts[2]===29&&!isLeap(y)?28:parts[2];
+   const d=new Date(Date.UTC(y,month-1,day,12));
+   const days=Math.round((d.getTime()-start.getTime())/86400000);
+   if(days>=0&&(best===null||days<best.days))best={days,date:d};
+  }
+  if(best&&best.days<=range)items.push({name:m.full_name,memberId:m.id,days:best.days,date:best.date,month:parts[1],day:parts[2]});
+ }
+ return items.sort((a,b)=>a.days-b.days||a.name.localeCompare(b.name));
+}
+function birthdayLabel(days){return days===0?"Today":days===1?"Tomorrow":"In "+days+" days"}
 async function loadMembers(){memberCache=await query("members")}
 async function loadEvents(){eventCache=await query("church_events","*","event_date")}
 function formModal(title,fields,onSubmit){
@@ -59,11 +80,11 @@ async function showSession(session){
  if(!role){$("#portal").hidden=false;$("#tabs").innerHTML="";$("#view").innerHTML='<section class="panel"><h2>Awaiting staff authorization</h2><p>An administrator must assign your account a staff role in Supabase.</p></section>';return}
  nav();await render();
 }
-function nav(){const list=[["dashboard","Overview"],["members","Members"],["attendance","Attendance & Events"],["offerings","Tithes & Offerings"],["expenses","Expenses"],["reports","Reports"],["accounts","Accounts"]];
+function nav(){const list=[["dashboard","Overview"],["members","Members"],["attendance","Attendance & Events"],["offerings","Tithes & Offerings"],["expenses","Expenses"],["reports","Reports"],["birthdays","🎂 Birthdays"],["accounts","Accounts"]];
  $("#tabs").innerHTML=list.filter(([key])=>can(key)).map(([key,label])=>'<button data-tab="'+key+'" class="'+(activeTab===key?"active":"")+'">'+label+"</button>").join("");
  $("#tabs").querySelectorAll("button").forEach(b=>b.onclick=()=>{activeTab=b.dataset.tab;nav();render()});
 }
-async function render(){try{if(!can(activeTab))activeTab="dashboard";const v=$("#view");v.innerHTML='<section class="panel">Loading records…</section>';if(activeTab==="dashboard")await dashboard();else if(activeTab==="members")await members();else if(activeTab==="attendance")await attendance();else if(activeTab==="offerings")await finance("offerings");else if(activeTab==="expenses")await finance("expenses");else if(activeTab==="accounts")await accounts();else await reports()}catch(e){$("#view").innerHTML='<section class="panel"><h2>Unable to load section</h2><p>'+esc(e.message)+'</p></section>';notice(e.message)}}
+async function render(){try{if(!can(activeTab))activeTab="dashboard";const v=$("#view");v.innerHTML='<section class="panel">Loading records…</section>';if(activeTab==="dashboard")await dashboard();else if(activeTab==="members")await members();else if(activeTab==="attendance")await attendance();else if(activeTab==="offerings")await finance("offerings");else if(activeTab==="expenses")await finance("expenses");else if(activeTab==="accounts")await accounts();else if(activeTab==="birthdays")await birthdays();else await reports()}catch(e){$("#view").innerHTML='<section class="panel"><h2>Unable to load section</h2><p>'+esc(e.message)+'</p></section>';notice(e.message)}}
 async function dashboard(){
  await loadMembers();
  const events=await query("church_events","*","event_date");
@@ -74,6 +95,13 @@ async function dashboard(){
  const active=memberCache.filter(x=>x.status==="active").length;
  const newMembers=memberCache.filter(x=>(x.member_since||"").startsWith(today().slice(0,7))).length;
  const recentEvents=events.slice().sort((a,b)=>b.event_date.localeCompare(a.event_date)).slice(0,5);
+ const upcomingBirthdays=birthdayItems(memberCache,7);
+ const birthdayToday=upcomingBirthdays.filter(x=>x.days===0);
+ const birthdayCard='<section class="dash-birthdays"><div class="dash-section-heading"><div><span class="dash-eyebrow">CELEBRATE OUR CHURCH FAMILY</span><h2>🎂 Birthdays & Celebrations</h2></div><button class="ghost" id="dashAllBirthdays">View all birthdays →</button></div>'+
+ (upcomingBirthdays.length?'<div class="birthday-highlight">'+(birthdayToday.length?'<p class="birthday-today-banner">🎉 '+birthdayToday.length+' birthday'+(birthdayToday.length===1?"":"s")+' today!</p>':"")+
+ upcomingBirthdays.map(b=>'<div class="birthday-dash-item"><span class="birthday-date"><strong>'+b.date.toLocaleDateString("en-PH",{month:"short",timeZone:"UTC"})+'</strong><small>'+b.date.getUTCDate()+'</small></span><div><strong>'+esc(b.name)+'</strong><small>'+birthdayLabel(b.days)+'</small></div><span class="birthday-balloon" aria-hidden="true">🎂</span></div>').join("")+'</div>':
+ '<p class="birthday-none">No recorded birthdays in the next 7 days. Add members’ birthdays in the Member Directory.</p>')+'</section>';
+
  const statItems=[
   {label:"Active Members",value:active,icon:"♧",tone:"sage",detail:"Our growing church family"},
   {label:"New This Month",value:newMembers,icon:"✦",tone:"peach",detail:"Newly welcomed members"},
@@ -86,6 +114,23 @@ async function dashboard(){
  $("#view").innerHTML='<div class="church-dashboard"><section class="dash-hero"><div class="dash-hero-copy"><span class="dash-kicker">✦ FAITH ASSEMBLY OF GOD • CHURCH PORTAL</span><h1>Growing together <em>in faith.</em></h1><p>Welcome back. Here is a beautiful overview of your church community, gatherings, and stewardship.</p><span class="dash-date-label">'+esc(new Date().toLocaleDateString("en-PH",{timeZone:"Asia/Manila",weekday:"long",month:"long",day:"numeric",year:"numeric"}))+'</span>'+(can("attendance")?'<button class="dash-attendance-shortcut" id="dashQuickAttendance" type="button">✓ Take Attendance</button>':"")+'</div><div class="dash-hero-art" aria-hidden="true"><div class="dash-halo halo-one"></div><div class="dash-halo halo-two"></div><img class="dash-logo" src="assets/faog-logo.webp" alt="Faith Assembly of God official logo"><div class="dash-spark one">✦</div><div class="dash-spark two">✧</div></div></section><div class="dash-title-row"><div><span class="dash-eyebrow">AT A GLANCE</span><h2>Our Church Community</h2></div><span class="dash-live"><span></span>Live data</span></div><section class="dash-stat-grid">'+statHTML+'</section><div class="dash-lower"><section class="dash-events"><div class="dash-section-heading"><div><span class="dash-eyebrow">WORSHIP & FELLOWSHIP</span><h2>Recent Gatherings</h2></div></div>'+eventHTML+'</section><aside class="dash-verse"><span class="dash-eyebrow">VERSE OF ENCOURAGEMENT</span><span class="dash-quote-mark">“</span><blockquote>Let all that you do be done in love.</blockquote><span class="dash-scripture">1 Corinthians 16:14</span><div class="dash-verse-decor">✝</div></aside></div>'+financial+'<p class="dash-footnote">Faith Assembly of God · Serving the community with faith, care, and integrity</p></div>';
  const reportBtn=$("#dashReports");if(reportBtn)reportBtn.onclick=()=>{activeTab="reports";nav();render()};
  const checkinBtn=$("#dashQuickAttendance");if(checkinBtn)checkinBtn.onclick=()=>{activeTab="attendance";location.hash="attendance";nav();render()};
+ const birthdayBtn=$("#dashAllBirthdays");if(birthdayBtn)birthdayBtn.onclick=()=>{activeTab="birthdays";location.hash="birthdays";nav();render()};
+
+}
+async function birthdays(){
+ await loadMembers();
+ const all=birthdayItems(memberCache,366);
+ const upcoming=all.filter(b=>b.days<=30);
+ const todayList=all.filter(b=>b.days===0);
+ const v=$("#view");
+ v.innerHTML='<section class="birthdays-page"><div class="birthdays-hero"><div><span class="attendance-kicker">FAITH ASSEMBLY OF GOD</span><h1>🎂 Birthday Celebrations</h1><p>Stay connected with your church family. Birthdays are displayed automatically from member records.</p></div><div class="birthdays-today-count"><strong>'+todayList.length+'</strong><span>Celebrating today</span></div></div>'+
+ '<div class="birthday-sections"><section><h2>Upcoming 30 Days</h2><div class="birthday-roster">'+
+ (upcoming.length?upcoming.map(b=>'<article class="birthday-entry"><span class="birthday-date"><strong>'+b.date.toLocaleDateString("en-PH",{month:"short",timeZone:"UTC"})+'</strong><small>'+b.date.getUTCDate()+'</small></span><div><strong>'+esc(b.name)+'</strong><small>'+birthdayLabel(b.days)+'</small></div><span>🎉</span></article>').join(""):'<p class="birthday-none">No birthdays coming up in the next 30 days.</p>')+
+ '</div></section><section><h2>All Recorded Birthdays</h2><label for="birthdaySearch">Search members<input id="birthdaySearch" type="search" placeholder="Search member name…" autocomplete="off"></label><div class="birthday-roster" id="birthdayAll"></div></section></div></section>';
+ const draw=()=>{const q=$("#birthdaySearch").value.toLowerCase().trim();
+ const matches=all.filter(b=>b.name.toLowerCase().includes(q));
+ $("#birthdayAll").innerHTML=matches.map(b=>'<div class="birthday-entry"><span class="birthday-date"><strong>'+b.date.toLocaleDateString("en-PH",{month:"short",timeZone:"UTC"})+'</strong><small>'+b.date.getUTCDate()+'</small></span><div><strong>'+esc(b.name)+'</strong><small>'+birthdayLabel(b.days)+'</small></div></div>').join("")||'<p class="birthday-none">No matching birthday records.</p>'};
+ $("#birthdaySearch").oninput=draw;draw();
 }
 async function members(){await loadMembers();const v=$("#view");v.innerHTML='<section class="panel"><div class="sectionhead"><h1>Member Directory</h1>'+(writableMembers()?'<button id="addMember">+ Add member</button>':"")+'</div><div class="toolbar"><input id="searchMembers" placeholder="Search names, ministry, status" aria-label="Search members"></div><div id="memberTable"></div></section>';
  const draw=()=>{const q=$("#searchMembers").value.toLowerCase();const list=memberCache.filter(m=>[m.full_name,m.ministry,m.status].some(x=>String(x||"").toLowerCase().includes(q)));$("#memberTable").innerHTML=table(["Name","Membership started","Ministry","Status","Contact",...(writableMembers()?["Action"]:[])],list.map(m=>'<tr><td>'+esc(m.full_name)+'</td><td>'+esc(m.member_since)+'</td><td>'+esc(m.ministry)+'</td><td><span class="badge">'+esc(m.status)+'</span></td><td>'+esc(m.phone)+'</td>'+(writableMembers()?'<td><button class="ghost small" data-edit="'+esc(m.id)+'">Edit</button></td>':"")+'</tr>'));$("#memberTable").querySelectorAll("[data-edit]").forEach(btn=>btn.onclick=()=>memberEditor(memberCache.find(m=>m.id===btn.dataset.edit)))};
