@@ -8,7 +8,7 @@ const notice=(msg,ok=false)=>{const n=$("#message");n.textContent=msg;n.classNam
 const configured=Boolean(conf.supabaseUrl&&conf.supabaseAnonKey);
 const db=configured?createClient(conf.supabaseUrl,conf.supabaseAnonKey,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}}):null;
 let role=null,memberCache=[],eventCache=[],activeTab=location.hash==="#attendance"?"attendance":"dashboard";
-const authRoles={dashboard:["admin","pastor","board","secretary","attendance","treasurer"],members:["admin","pastor","board","secretary","attendance","treasurer"],attendance:["admin","pastor","secretary","attendance"],offerings:["admin","treasurer"],expenses:["admin","treasurer"],reports:["admin","treasurer"],birthdays:["admin","pastor","board","secretary","attendance","treasurer"],accounts:["admin"]};
+const authRoles={dashboard:["admin","pastor","board","secretary","attendance","treasurer"],members:["admin","pastor","board","secretary","attendance","treasurer"],attendance:["admin","pastor","secretary","attendance"],sunday_absences:["admin","pastor","secretary","attendance"],offerings:["admin","treasurer"],expenses:["admin","treasurer"],reports:["admin","treasurer"],birthdays:["admin","pastor","board","secretary","attendance","treasurer"],accounts:["admin"]};
 const can=t=>Boolean(role&&authRoles[t]?.includes(role));
 const writableMembers=()=>["admin","secretary"].includes(role);
 const canAttend=()=>["admin","secretary","attendance"].includes(role);
@@ -37,6 +37,37 @@ function birthdayItems(members,range=30){
  return items.sort((a,b)=>a.days-b.days||a.name.localeCompare(b.name));
 }
 function birthdayLabel(days){return days===0?"Today":days===1?"Tomorrow":"In "+days+" days"}
+
+/* Assess only the three immediately preceding, completed calendar Sundays.
+   Each Sunday needs an actual Sunday service AND at least one recorded check-in,
+   otherwise the result is incomplete rather than an absence allegation. */
+function previousThreeSundays(){
+ const ph=today(),current=new Date(ph+"T12:00:00Z"),weekday=current.getUTCDay();
+ const daysToPrevious=weekday===0?7:weekday;
+ return [0,1,2].map(i=>new Date(current.getTime()-(daysToPrevious+i*7)*86400000).toISOString().slice(0,10)).reverse();
+}
+async function getSundayAbsenceData(members,events){
+ const sundays=previousThreeSundays();
+ const sundayEvents=events.filter(e=>sundays.includes(e.event_date)&&new Date(e.event_date+"T12:00:00Z").getUTCDay()===0&&(/sunday/i.test(e.event_type||"")||/sunday/i.test(e.title||"")));
+ const byDate=new Map(sundays.map(day=>[day,sundayEvents.filter(e=>e.event_date===day)]));
+ const ids=sundayEvents.map(e=>e.id);
+ let checkins=[];
+ if(ids.length){
+  const {data,error}=await db.from("attendance").select("event_id,member_id").in("event_id",ids).limit(10000);
+  if(error)throw error;
+  checkins=data||[];
+  if(checkins.length===10000)throw Error("Attendance data limit reached. Cannot safely calculate Sunday absences.");
+ }
+ const recorded=new Map(sundays.map(day=>[day,new Set(checkins.filter(a=>byDate.get(day).some(e=>e.id===a.event_id)).map(a=>a.member_id))]));
+ const ready=sundays.every(d=>byDate.get(d).length>0&&recorded.get(d).size>0);
+ const missing=sundays.filter(d=>byDate.get(d).length===0||recorded.get(d).size===0)
+  .map(d=>({date:d,reason:byDate.get(d).length===0?"No Sunday service recorded":"No attendance check-ins recorded"}));
+ const flagged=ready?members.filter(m=>m.status==="active"&&m.member_since<=sundays[0]&&sundays.every(day=>!recorded.get(day).has(m.id))).sort((a,b)=>a.full_name.localeCompare(b.full_name)):[];
+ return {sundays,ready,missing,flagged,eventsBySunday:byDate,recorded};
+}
+function readableSunday(date){
+ return new Date(date+"T12:00:00Z").toLocaleDateString("en-PH",{month:"short",day:"numeric",year:"numeric",timeZone:"UTC"});
+}
 async function loadMembers(){memberCache=await query("members")}
 async function loadEvents(){eventCache=await query("church_events","*","event_date")}
 function formModal(title,fields,onSubmit){
@@ -80,11 +111,11 @@ async function showSession(session){
  if(!role){$("#portal").hidden=false;$("#tabs").innerHTML="";$("#view").innerHTML='<section class="panel"><h2>Awaiting staff authorization</h2><p>An administrator must assign your account a staff role in Supabase.</p></section>';return}
  nav();await render();
 }
-function nav(){const list=[["dashboard","Overview"],["members","Members"],["attendance","Attendance & Events"],["offerings","Tithes & Offerings"],["expenses","Expenses"],["reports","Reports"],["birthdays","🎂 Birthdays"],["accounts","Accounts"]];
+function nav(){const list=[["dashboard","Overview"],["members","Members"],["attendance","Attendance & Events"],["sunday_absences","Sunday Absence Alerts"],["offerings","Tithes & Offerings"],["expenses","Expenses"],["reports","Reports"],["birthdays","🎂 Birthdays"],["accounts","Accounts"]];
  $("#tabs").innerHTML=list.filter(([key])=>can(key)).map(([key,label])=>'<button data-tab="'+key+'" class="'+(activeTab===key?"active":"")+'">'+label+"</button>").join("");
  $("#tabs").querySelectorAll("button").forEach(b=>b.onclick=()=>{activeTab=b.dataset.tab;nav();render()});
 }
-async function render(){try{if(!can(activeTab))activeTab="dashboard";const v=$("#view");v.innerHTML='<section class="panel">Loading records…</section>';if(activeTab==="dashboard")await dashboard();else if(activeTab==="members")await members();else if(activeTab==="attendance")await attendance();else if(activeTab==="offerings")await finance("offerings");else if(activeTab==="expenses")await finance("expenses");else if(activeTab==="accounts")await accounts();else if(activeTab==="birthdays")await birthdays();else await reports()}catch(e){$("#view").innerHTML='<section class="panel"><h2>Unable to load section</h2><p>'+esc(e.message)+'</p></section>';notice(e.message)}}
+async function render(){try{if(!can(activeTab))activeTab="dashboard";const v=$("#view");v.innerHTML='<section class="panel">Loading records…</section>';if(activeTab==="dashboard")await dashboard();else if(activeTab==="members")await members();else if(activeTab==="attendance")await attendance();else if(activeTab==="sunday_absences")await sundayAbsences();else if(activeTab==="offerings")await finance("offerings");else if(activeTab==="expenses")await finance("expenses");else if(activeTab==="accounts")await accounts();else if(activeTab==="birthdays")await birthdays();else await reports()}catch(e){$("#view").innerHTML='<section class="panel"><h2>Unable to load section</h2><p>'+esc(e.message)+'</p></section>';notice(e.message)}}
 async function dashboard(){
  await loadMembers();
  const events=await query("church_events","*","event_date");
@@ -97,6 +128,11 @@ async function dashboard(){
  const recentEvents=events.slice().sort((a,b)=>b.event_date.localeCompare(a.event_date)).slice(0,5);
  const upcomingBirthdays=birthdayItems(memberCache,7);
  const birthdayToday=upcomingBirthdays.filter(x=>x.days===0);
+
+ const sundayAlerts=can("sunday_absences")?await getSundayAbsenceData(memberCache,events):null;
+ const sundayCard=sundayAlerts?'<section class="dash-sunday-alert"><div class="dash-section-heading"><div><span class="dash-eyebrow">MEMBER CARE</span><h2>Sunday Absence Alerts</h2></div><button class="ghost" id="dashSundayAlerts">View alerts →</button></div>'+
+ (sundayAlerts.ready?(sundayAlerts.flagged.length?'<p class="sa-status-warning">⚠️ '+sundayAlerts.flagged.length+' member'+(sundayAlerts.flagged.length===1?' has':'s have')+' missed 3 consecutive Sundays.</p>':'<p class="sa-ok">✓ No three-Sunday absences detected.</p>'):
+ '<p class="sa-not-ready">Sunday attendance records are incomplete. '+sundayAlerts.missing.length+' Sunday'+(sundayAlerts.missing.length===1?' needs':'s need')+' attendance verification.</p>')+'</section>':"";
  const birthdayCard='<section class="dash-birthdays"><div class="dash-section-heading"><div><span class="dash-eyebrow">CELEBRATE OUR CHURCH FAMILY</span><h2>🎂 Birthdays & Celebrations</h2></div><button class="ghost" id="dashAllBirthdays">View all birthdays →</button></div>'+
  (upcomingBirthdays.length?'<div class="birthday-highlight">'+(birthdayToday.length?'<p class="birthday-today-banner">🎉 '+birthdayToday.length+' birthday'+(birthdayToday.length===1?"":"s")+' today!</p>':"")+
  upcomingBirthdays.map(b=>'<div class="birthday-dash-item"><span class="birthday-date"><strong>'+b.date.toLocaleDateString("en-PH",{month:"short",timeZone:"UTC"})+'</strong><small>'+b.date.getUTCDate()+'</small></span><div><strong>'+esc(b.name)+'</strong><small>'+birthdayLabel(b.days)+'</small></div><span class="birthday-balloon" aria-hidden="true">🎂</span></div>').join("")+'</div>':
@@ -111,11 +147,30 @@ async function dashboard(){
  const statHTML=statItems.map((s,i)=>'<article class="dash-stat '+s.tone+'"><div class="dash-stat-top"><span>'+esc(s.label)+'</span><span class="dash-stat-icon" aria-hidden="true">'+s.icon+'</span></div><strong>'+esc(s.value)+'</strong><small>'+esc(s.detail)+'</small><span class="dash-stat-number">0'+(i+1)+'</span></article>').join("");
  const financial=can("reports")?'<section class="dash-finance"><div class="dash-section-heading"><div><span class="dash-eyebrow">FINANCIAL STEWARDSHIP</span><h2>Giving & Expenses</h2></div><button class="ghost" id="dashReports">View reports →</button></div><div class="dash-finance-grid"><div><small>Total Giving</small><strong>'+money(total(offerings))+'</strong><span>Recorded offerings</span></div><div><small>Total Expenses</small><strong>'+money(total(expenses))+'</strong><span>Recorded expenditures</span></div><div class="balance"><small>Available Balance</small><strong>'+money(total(offerings)-total(expenses))+'</strong><span>Giving less expenses</span></div></div></section>':"";
  const eventHTML=recentEvents.length?recentEvents.map(e=>'<div class="dash-event"><span class="dash-date"><strong>'+esc(e.event_date.slice(8,10))+'</strong><small>'+esc(new Date(e.event_date+"T12:00:00").toLocaleString("en-PH",{month:"short"}))+'</small></span><span class="dash-event-info"><strong>'+esc(e.title)+'</strong><small>'+esc(e.event_type)+'</small></span><span class="dash-event-dot">✦</span></div>').join(""):'<div class="dash-empty">No events recorded yet. Add your next Sunday service in Attendance.</div>';
- $("#view").innerHTML='<div class="church-dashboard"><section class="dash-hero"><div class="dash-hero-copy"><span class="dash-kicker">✦ FAITH ASSEMBLY OF GOD • CHURCH PORTAL</span><h1>Growing together <em>in faith.</em></h1><p>Welcome back. Here is a beautiful overview of your church community, gatherings, and stewardship.</p><span class="dash-date-label">'+esc(new Date().toLocaleDateString("en-PH",{timeZone:"Asia/Manila",weekday:"long",month:"long",day:"numeric",year:"numeric"}))+'</span>'+(can("attendance")?'<button class="dash-attendance-shortcut" id="dashQuickAttendance" type="button">✓ Take Attendance</button>':"")+'</div><div class="dash-hero-art" aria-hidden="true"><div class="dash-halo halo-one"></div><div class="dash-halo halo-two"></div><img class="dash-logo" src="assets/faog-logo.webp" alt="Faith Assembly of God official logo"><div class="dash-spark one">✦</div><div class="dash-spark two">✧</div></div></section><div class="dash-title-row"><div><span class="dash-eyebrow">AT A GLANCE</span><h2>Our Church Community</h2></div><span class="dash-live"><span></span>Live data</span></div><section class="dash-stat-grid">'+statHTML+'</section>'+birthdayCard+'<div class="dash-lower"><section class="dash-events"><div class="dash-section-heading"><div><span class="dash-eyebrow">WORSHIP & FELLOWSHIP</span><h2>Recent Gatherings</h2></div></div>'+eventHTML+'</section><aside class="dash-verse"><span class="dash-eyebrow">VERSE OF ENCOURAGEMENT</span><span class="dash-quote-mark">“</span><blockquote>Let all that you do be done in love.</blockquote><span class="dash-scripture">1 Corinthians 16:14</span><div class="dash-verse-decor">✝</div></aside></div>'+financial+'<p class="dash-footnote">Faith Assembly of God · Serving the community with faith, care, and integrity</p></div>';
+ $("#view").innerHTML='<div class="church-dashboard"><section class="dash-hero"><div class="dash-hero-copy"><span class="dash-kicker">✦ FAITH ASSEMBLY OF GOD • CHURCH PORTAL</span><h1>Growing together <em>in faith.</em></h1><p>Welcome back. Here is a beautiful overview of your church community, gatherings, and stewardship.</p><span class="dash-date-label">'+esc(new Date().toLocaleDateString("en-PH",{timeZone:"Asia/Manila",weekday:"long",month:"long",day:"numeric",year:"numeric"}))+'</span>'+(can("attendance")?'<button class="dash-attendance-shortcut" id="dashQuickAttendance" type="button">✓ Take Attendance</button>':"")+'</div><div class="dash-hero-art" aria-hidden="true"><div class="dash-halo halo-one"></div><div class="dash-halo halo-two"></div><img class="dash-logo" src="assets/faog-logo.webp" alt="Faith Assembly of God official logo"><div class="dash-spark one">✦</div><div class="dash-spark two">✧</div></div></section><div class="dash-title-row"><div><span class="dash-eyebrow">AT A GLANCE</span><h2>Our Church Community</h2></div><span class="dash-live"><span></span>Live data</span></div><section class="dash-stat-grid">'+statHTML+'</section>'+sundayCard+birthdayCard+'<div class="dash-lower"><section class="dash-events"><div class="dash-section-heading"><div><span class="dash-eyebrow">WORSHIP & FELLOWSHIP</span><h2>Recent Gatherings</h2></div></div>'+eventHTML+'</section><aside class="dash-verse"><span class="dash-eyebrow">VERSE OF ENCOURAGEMENT</span><span class="dash-quote-mark">“</span><blockquote>Let all that you do be done in love.</blockquote><span class="dash-scripture">1 Corinthians 16:14</span><div class="dash-verse-decor">✝</div></aside></div>'+financial+'<p class="dash-footnote">Faith Assembly of God · Serving the community with faith, care, and integrity</p></div>';
  const reportBtn=$("#dashReports");if(reportBtn)reportBtn.onclick=()=>{activeTab="reports";nav();render()};
  const checkinBtn=$("#dashQuickAttendance");if(checkinBtn)checkinBtn.onclick=()=>{activeTab="attendance";location.hash="attendance";nav();render()};
  const birthdayBtn=$("#dashAllBirthdays");if(birthdayBtn)birthdayBtn.onclick=()=>{activeTab="birthdays";location.hash="birthdays";nav();render()};
+ const absenceBtn=$("#dashSundayAlerts");if(absenceBtn)absenceBtn.onclick=()=>{activeTab="sunday_absences";location.hash="sunday_absences";nav();render()};
 
+
+}
+
+async function sundayAbsences(){
+ await Promise.all([loadMembers(),loadEvents()]);
+ const result=await getSundayAbsenceData(memberCache,eventCache);
+ const v=$("#view");
+ const dateList=result.sundays.map(d=>'<span class="sa-date">'+readableSunday(d)+'</span>').join("");
+ const alertRows=result.flagged.map(m=>'<article class="sa-member"><div class="sa-avatar">'+esc(m.full_name.trim().split(/\s+/).slice(0,2).map(x=>x.charAt(0)).join("").toUpperCase())+'</div><div class="sa-member-details"><strong>'+esc(m.full_name)+'</strong><span>Not checked in on all 3 Sunday services</span><small>Member since '+esc(m.member_since)+(m.ministry?' • '+esc(m.ministry):'')+'</small></div>'+(m.phone?'<a class="sa-phone" href="tel:'+esc(m.phone.replace(/[^+\d]/g,""))+'">Call member</a>':"")+'</article>').join("");
+ const output=result.ready?(result.flagged.length?
+  '<p class="sa-status-warning">⚠️ '+result.flagged.length+' active member'+(result.flagged.length===1?' needs':'s need')+' a friendly follow-up.</p><div class="sa-list">'+alertRows+'</div>':
+  '<div class="sa-ok">✓ No members were flagged for missing all three recorded Sundays.</div>'):
+  '<div class="sa-not-ready"><strong>Attendance records are incomplete.</strong><p>No absence alerts will be shown until attendance is recorded for all three consecutive Sundays.</p>'+
+  result.missing.map(x=>'<div class="sa-missing"><strong>'+readableSunday(x.date)+'</strong><span>'+esc(x.reason)+'</span></div>').join("")+'</div>';
+ v.innerHTML='<section class="sa-page"><div class="sa-header"><div><span class="attendance-kicker">PASTORAL CARE & FOLLOW-UP</span><h1>Sunday Absence Alerts</h1><p>Automatically checks the last three completed Sundays — not Wednesdays or other weekdays.</p></div><div class="sa-count"><strong>'+(result.ready?result.flagged.length:'—')+'</strong><span>Members flagged</span></div></div>'+
+ '<section class="sa-card"><div class="sa-heading"><div><h2>Three Sundays being checked</h2><p>Each Sunday must have a service and recorded attendance.</p></div><button class="ghost" id="saRefresh">↻ Refresh</button></div><div class="sa-dates">'+dateList+'</div>'+output+'</section>'+
+ '<p class="sa-footnote">For church staff only. These are attendance-based follow-up suggestions, not proof of a member’s absence from all church activities. New members who joined after the first checked Sunday are excluded.</p></section>';
+ $("#saRefresh").onclick=()=>sundayAbsences();
 }
 async function birthdays(){
  await loadMembers();
